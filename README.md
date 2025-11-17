@@ -184,10 +184,10 @@ Options:
 
 ```bash
 # Set custom port
-set PC_HARDWARE_MONITOR_PORT=9182
+set RIGBEAT_PORT=9182
 
 # Set update interval
-set PC_HARDWARE_MONITOR_INTERVAL=2
+set RIGBEAT_INTERVAL=2
 ```
 
 ## 🎨 Dashboard Features
@@ -230,7 +230,7 @@ set PC_HARDWARE_MONITOR_INTERVAL=2
 
 ```bash
 # Clone repository
-git clone https://github.com/yourusername/rigbeat.git
+git clone https://github.com/vegardhw/rigbeat.git
 cd rigbeat
 
 # Install dependencies
@@ -269,9 +269,9 @@ If you find this useful, consider giving it a star! It helps others discover the
 
 ## 📞 Support
 
-- 🐛 [Report bugs](https://github.com/yourusername/rigbeat/issues)
-- 💡 [Request features](https://github.com/yourusername/rigbeat/issues)
-- 💬 [Discussions](https://github.com/yourusername/rigbeat/discussions)
+- 🐛 [Report bugs](https://github.com/vegardhw/rigbeat/issues)
+- 💡 [Request features](https://github.com/vegardhw/rigbeat/issues)
+- 💬 [Discussions](https://github.com/vegardhw/rigbeat/discussions)
 
 ---
 

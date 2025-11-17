@@ -1,0 +1,17 @@
+{
+    "version": "0.2",
+    "language": "en",
+    "ignorePaths": [
+        "**/node_modules/**",
+        "**/vscode-extension/**",
+        "**/.git/**",
+        ".vscode"
+    ],
+    "words": [
+        "bdist",
+        "pylint",
+        "pytest",
+        "rigbeat",
+        "sdist"
+    ]
+}

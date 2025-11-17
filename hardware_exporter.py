@@ -42,7 +42,7 @@ system_info = Info('system', 'System information')
 
 class HardwareMonitor:
     """Monitors hardware sensors via WMI (LibreHardwareMonitor)"""
-    
+
     def __init__(self):
         try:
             self.w = wmi.WMI(namespace="root\\LibreHardwareMonitor")
@@ -51,7 +51,7 @@ class HardwareMonitor:
             logger.error(f"Failed to connect to LibreHardwareMonitor WMI: {e}")
             logger.error("Make sure LibreHardwareMonitor is running with WMI enabled!")
             raise
-    
+
     def get_sensors(self) -> List:
         """Get all hardware sensors"""
         try:
@@ -59,76 +59,76 @@ class HardwareMonitor:
         except Exception as e:
             logger.error(f"Error reading sensors: {e}")
             return []
-    
+
     def update_metrics(self):
         """Update all Prometheus metrics"""
         sensors = self.get_sensors()
-        
+
         if not sensors:
             logger.warning("No sensors found - is LibreHardwareMonitor running?")
             return
-        
+
         for sensor in sensors:
             try:
                 sensor_type = sensor.SensorType
                 sensor_name = sensor.Name
                 value = float(sensor.Value) if sensor.Value else 0
                 parent = sensor.Parent
-                
+
                 # CPU Temperature
                 if sensor_type == "Temperature" and "CPU" in parent:
                     cpu_temp.labels(sensor=sensor_name).set(value)
-                
+
                 # CPU Load
                 elif sensor_type == "Load" and "CPU" in parent:
                     # Clean up core names (e.g., "CPU Core #1" -> "core1")
                     core_label = sensor_name.lower().replace("cpu ", "").replace("#", "").replace(" ", "")
                     cpu_load.labels(core=core_label).set(value)
-                
+
                 # CPU Clock
                 elif sensor_type == "Clock" and "CPU" in parent:
                     core_label = sensor_name.lower().replace("cpu ", "").replace("#", "").replace(" ", "")
                     cpu_clock.labels(core=core_label).set(value)
-                
+
                 # GPU Temperature
                 elif sensor_type == "Temperature" and any(x in parent for x in ["GPU", "NVIDIA", "AMD", "Radeon"]):
                     gpu_name = parent.split("/")[-1] if "/" in parent else "gpu0"
                     gpu_temp.labels(gpu=gpu_name).set(value)
-                
+
                 # GPU Load
                 elif sensor_type == "Load" and any(x in parent for x in ["GPU", "NVIDIA", "AMD", "Radeon"]):
                     gpu_name = parent.split("/")[-1] if "/" in parent else "gpu0"
                     load_type = "core" if "Core" in sensor_name else "memory" if "Memory" in sensor_name else "other"
                     gpu_load.labels(gpu=gpu_name, type=load_type).set(value)
-                
+
                 # GPU Memory
                 elif sensor_type == "SmallData" and "Memory Used" in sensor_name:
                     gpu_name = parent.split("/")[-1] if "/" in parent else "gpu0"
                     gpu_memory.labels(gpu=gpu_name).set(value)
-                
+
                 # GPU Clock
                 elif sensor_type == "Clock" and any(x in parent for x in ["GPU", "NVIDIA", "AMD", "Radeon"]):
                     gpu_name = parent.split("/")[-1] if "/" in parent else "gpu0"
                     clock_type = "core" if "Core" in sensor_name else "memory" if "Memory" in sensor_name else "other"
                     gpu_clock.labels(gpu=gpu_name, type=clock_type).set(value)
-                
+
                 # Fan Speeds
                 elif sensor_type == "Fan":
                     # Create clean fan labels
                     fan_name = sensor_name.lower().replace(" ", "_").replace("#", "")
                     fan_rpm.labels(fan=fan_name).set(value)
-                
+
                 # Memory (from motherboard/system)
                 elif sensor_type == "Data":
                     if "Memory Used" in sensor_name:
                         memory_used.set(value)
                     elif "Memory Available" in sensor_name:
                         memory_available.set(value)
-                        
+
             except Exception as e:
                 logger.debug(f"Error processing sensor {sensor_name}: {e}")
                 continue
-    
+
     def get_system_info(self) -> Dict:
         """Get system information"""
         try:
@@ -138,18 +138,18 @@ class HardwareMonitor:
                 'gpu': 'Unknown',
                 'motherboard': 'Unknown'
             }
-            
+
             for hw in hardware:
                 hw_type = hw.HardwareType
                 hw_name = hw.Name
-                
+
                 if hw_type == "CPU" or "Processor" in hw_type:
                     info['cpu'] = hw_name
                 elif hw_type == "GpuNvidia" or hw_type == "GpuAmd":
                     info['gpu'] = hw_name
                 elif hw_type == "Motherboard":
                     info['motherboard'] = hw_name
-            
+
             return info
         except Exception as e:
             logger.error(f"Error getting system info: {e}")
@@ -161,26 +161,26 @@ def main():
     parser.add_argument('--port', type=int, default=9182, help='Port to expose metrics (default: 9182)')
     parser.add_argument('--interval', type=int, default=2, help='Update interval in seconds (default: 2)')
     args = parser.parse_args()
-    
+
     logger.info(f"Starting Rigbeat Exporter on port {args.port}")
     logger.info(f"Update interval: {args.interval} seconds")
-    
+
     # Initialize monitor
     try:
         monitor = HardwareMonitor()
     except Exception as e:
         logger.error("Failed to initialize hardware monitor. Exiting.")
         return 1
-    
+
     # Get and set system info
     sys_info = monitor.get_system_info()
     system_info.info(sys_info)
     logger.info(f"System: CPU={sys_info['cpu']}, GPU={sys_info['gpu']}")
-    
+
     # Start Prometheus HTTP server
     start_http_server(args.port)
     logger.info(f"Metrics available at http://localhost:{args.port}/metrics")
-    
+
     # Main loop
     try:
         while True:
