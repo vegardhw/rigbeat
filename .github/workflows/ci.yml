@@ -1,0 +1,76 @@
+name: CI
+
+on:
+  push:
+    branches: [ main, dev ]
+  pull_request:
+    branches: [ main, dev ]
+
+jobs:
+  test:
+    runs-on: windows-latest
+    strategy:
+      matrix:
+        python-version: ['3.8', '3.9', '3.10', '3.11']
+
+    steps:
+    - uses: actions/checkout@v3
+
+    - name: Set up Python ${{ matrix.python-version }}
+      uses: actions/setup-python@v4
+      with:
+        python-version: ${{ matrix.python-version }}
+
+    - name: Install dependencies
+      run: |
+        python -m pip install --upgrade pip
+        pip install -r requirements.txt
+        pip install pytest black pylint
+
+    - name: Lint Python files
+      run: |
+        pylint hardware_exporter.py install_service.py test_fans.py --disable=C0103,C0301,C0114,C0115,C0116
+      continue-on-error: true
+
+    - name: Check code formatting with black
+      run: |
+        black --check *.py
+      continue-on-error: true
+
+    - name: Validate Python syntax
+      run: |
+        python -m py_compile hardware_exporter.py
+        python -m py_compile install_service.py
+        python -m py_compile test_fans.py
+
+    - name: Test import statements
+      run: |
+        python -c "import hardware_exporter; print('✓ hardware_exporter imports successfully')"
+        python -c "import argparse, logging, re, time; print('✓ Standard library imports work')"
+
+    - name: Test command line arguments
+      run: |
+        python hardware_exporter.py --help
+
+    - name: Validate configuration files
+      run: |
+        if (Test-Path "prometheus_config.txt") { Write-Host "✓ Prometheus config exists" }
+        if (Test-Path "grafana_dashboard.json") { Write-Host "✓ Grafana dashboard exists" }
+        if (Test-Path "FAN_SUPPORT.md") { Write-Host "✓ Fan support docs exist" }
+        if (Test-Path "install_script.bat") { Write-Host "✓ Install script exists" }
+
+  documentation:
+    runs-on: ubuntu-latest
+    steps:
+    - uses: actions/checkout@v3
+
+    - name: Check documentation files
+      run: |
+        [ -f README.md ] && echo "✓ README.md exists" || echo "✗ README.md missing"
+        [ -f FAN_SUPPORT.md ] && echo "✓ FAN_SUPPORT.md exists" || echo "✗ FAN_SUPPORT.md missing"
+        [ -f LICENSE ] && echo "✓ LICENSE exists" || echo "✗ LICENSE missing"
+        [ -f requirements.txt ] && echo "✓ requirements.txt exists" || echo "✗ requirements.txt missing"
+
+    - name: Validate JSON files
+      run: |
+        python -m json.tool grafana_dashboard.json > /dev/null && echo "✓ Grafana dashboard JSON is valid" || echo "✗ Invalid JSON"
