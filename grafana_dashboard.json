@@ -200,8 +200,8 @@
       "pluginVersion": "9.0.0",
       "targets": [
         {
-          "expr": "rigbeat_cpu_load_percent",
-          "legendFormat": "{{core}}",
+          "expr": "rigbeat_cpu_load_percent{core=\"total\"}",
+          "legendFormat": "CPU Total Load",
           "refId": "A"
         }
       ],
@@ -417,23 +417,18 @@
       "targets": [
         {
           "expr": "rigbeat_fan_speed_rpm{type=\"gpu\"}",
-          "legendFormat": "{{fan}} ({{type}})",
+          "legendFormat": "GPU: {{fan}}",
           "refId": "A"
         },
         {
           "expr": "rigbeat_fan_speed_rpm{type=\"cpu\"}",
-          "legendFormat": "{{fan}} ({{type}})",
+          "legendFormat": "CPU: {{fan}}",
           "refId": "B"
         },
         {
           "expr": "rigbeat_fan_speed_rpm{type=\"chassis\"}",
-          "legendFormat": "{{fan}} ({{type}})",
+          "legendFormat": "Case: {{fan}}",
           "refId": "C"
-        },
-        {
-          "expr": "rigbeat_fan_speed_rpm{type=\"other\"}",
-          "legendFormat": "{{fan}} ({{type}})",
-          "refId": "D"
         }
       ],
       "title": "Fan Speeds",
@@ -631,8 +626,8 @@
       "pluginVersion": "9.0.0",
       "targets": [
         {
-          "expr": "rigbeat_fan_speed_rpm",
-          "legendFormat": "{{fan}} ({{type}})",
+          "expr": "rigbeat_fan_speed_rpm{type=~\"gpu|cpu\"}",
+          "legendFormat": "{{type|title}}: {{fan}}",
           "refId": "A"
         }
       ],
@@ -664,7 +659,7 @@
               }
             ]
           },
-          "unit": "decbytes"
+          "unit": "gbytes"
         },
         "overrides": []
       },

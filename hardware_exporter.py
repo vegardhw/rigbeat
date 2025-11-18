@@ -81,38 +81,54 @@ class HardwareMonitor:
                     continue
 
                 # CPU Temperature
-                if sensor_type == "Temperature" and "CPU" in parent:
-                    cpu_temp.labels(sensor=sensor_name).set(value)
+                if sensor_type == "Temperature" and ("/cpu" in parent.lower() or "/amdcpu" in parent.lower() or "cpu" in parent.lower()):
+                    # Clean up temperature sensor names for better display
+                    if "ccd" in sensor_name.lower():
+                        # Convert "CCD1 (Tdie)" or "CCD1" to "Core Complex 1"
+                        sensor_label = sensor_name.replace("CCD", "Core Complex ").replace(" (Tdie)", "")
+                    elif "tctl" in sensor_name.lower():
+                        sensor_label = "CPU Package"
+                    elif "die" in sensor_name.lower():
+                        sensor_label = "CPU Die"
+                    else:
+                        sensor_label = sensor_name
+                    cpu_temp.labels(sensor=sensor_label).set(value)
 
                 # CPU Load
-                elif sensor_type == "Load" and "CPU" in parent:
-                    # Clean up core names (e.g., "CPU Core #1" -> "core1")
-                    core_label = sensor_name.lower().replace("cpu ", "").replace("#", "").replace(" ", "")
+                elif sensor_type == "Load" and ("/cpu" in parent.lower() or "/amdcpu" in parent.lower() or "cpu" in parent.lower()):
+                    # Clean up core names (e.g., "CPU Core #1" -> "core1", "CPU Total" -> "total")
+                    if "total" in sensor_name.lower():
+                        core_label = "total"
+                    else:
+                        core_label = sensor_name.lower().replace("cpu ", "").replace("#", "").replace(" ", "")
                     cpu_load.labels(core=core_label).set(value)
 
                 # CPU Clock
-                elif sensor_type == "Clock" and "CPU" in parent:
-                    core_label = sensor_name.lower().replace("cpu ", "").replace("#", "").replace(" ", "")
+                elif sensor_type == "Clock" and ("/cpu" in parent.lower() or "/amdcpu" in parent.lower() or "cpu" in parent.lower()):
+                    if "total" in sensor_name.lower():
+                        core_label = "total"
+                    else:
+                        core_label = sensor_name.lower().replace("cpu ", "").replace("#", "").replace(" ", "")
                     cpu_clock.labels(core=core_label).set(value)
 
                 # GPU Temperature
-                elif sensor_type == "Temperature" and any(x in parent for x in ["GPU", "NVIDIA", "AMD", "Radeon"]):
+                elif sensor_type == "Temperature" and any(x in parent.lower() for x in ["/gpu", "nvidia", "amd", "radeon"]):
                     gpu_name = parent.split("/")[-1] if "/" in parent else "gpu0"
                     gpu_temp.labels(gpu=gpu_name).set(value)
 
                 # GPU Load
-                elif sensor_type == "Load" and any(x in parent for x in ["GPU", "NVIDIA", "AMD", "Radeon"]):
+                elif sensor_type == "Load" and any(x in parent.lower() for x in ["/gpu", "nvidia", "amd", "radeon"]):
                     gpu_name = parent.split("/")[-1] if "/" in parent else "gpu0"
                     load_type = "core" if "Core" in sensor_name else "memory" if "Memory" in sensor_name else "other"
                     gpu_load.labels(gpu=gpu_name, type=load_type).set(value)
 
                 # GPU Memory
-                elif sensor_type == "SmallData" and "Memory Used" in sensor_name:
+                elif sensor_type == "SmallData" and "Memory Used" in sensor_name and any(x in parent.lower() for x in ["/gpu", "nvidia", "amd", "radeon"]):
                     gpu_name = parent.split("/")[-1] if "/" in parent else "gpu0"
                     gpu_memory.labels(gpu=gpu_name).set(value)
 
                 # GPU Clock
-                elif sensor_type == "Clock" and any(x in parent for x in ["GPU", "NVIDIA", "AMD", "Radeon"]):
+                elif sensor_type == "Clock" and any(x in parent.lower() for x in ["/gpu", "nvidia", "amd", "radeon"]):
                     gpu_name = parent.split("/")[-1] if "/" in parent else "gpu0"
                     clock_type = "core" if "Core" in sensor_name else "memory" if "Memory" in sensor_name else "other"
                     gpu_clock.labels(gpu=gpu_name, type=clock_type).set(value)
@@ -157,9 +173,19 @@ class HardwareMonitor:
                 # Memory (from motherboard/system)
                 elif sensor_type == "Data":
                     if "Memory Used" in sensor_name:
-                        memory_used.set(value)
+                        # Convert to GB if the value is in bytes/MB
+                        if value > 1000:  # Likely in MB or bytes
+                            memory_value = value / 1024 if value > 10000 else value  # MB to GB conversion if needed
+                        else:
+                            memory_value = value  # Already in GB
+                        memory_used.set(memory_value)
                     elif "Memory Available" in sensor_name:
-                        memory_available.set(value)
+                        # Convert to GB if the value is in bytes/MB
+                        if value > 1000:  # Likely in MB or bytes
+                            memory_value = value / 1024 if value > 10000 else value  # MB to GB conversion if needed
+                        else:
+                            memory_value = value  # Already in GB
+                        memory_available.set(memory_value)
 
             except Exception as e:
                 logger.debug(f"Error processing sensor {sensor_name}: {e}")
@@ -184,13 +210,13 @@ class HardwareMonitor:
 
                 logger.debug(f"Found hardware: Type={hw_type}, Name={hw_name}")
 
-                if "CPU" in hw_type or "Processor" in hw_type:
+                if hw_type.lower() in ["cpu", "processor"] or "cpu" in hw_type.lower() or "processor" in hw_type.lower():
                     info['cpu'] = hw_name
                     logger.info(f"Detected CPU: {hw_name}")
-                elif "Gpu" in hw_type or hw_type == "GpuNvidia" or hw_type == "GpuAmd":
+                elif "gpu" in hw_type.lower() or "nvidia" in hw_type.lower() or "amd" in hw_type.lower():
                     info['gpu'] = hw_name
                     logger.info(f"Detected GPU: {hw_name}")
-                elif "Motherboard" in hw_type:
+                elif "motherboard" in hw_type.lower():
                     info['motherboard'] = hw_name
                     logger.info(f"Detected Motherboard: {hw_name}")
 
