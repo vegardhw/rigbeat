@@ -50,7 +50,7 @@
         "overrides": []
       },
       "gridPos": {
-        "h": 8,
+        "h": 6,
         "w": 6,
         "x": 0,
         "y": 0
@@ -70,7 +70,7 @@
       "pluginVersion": "9.0.0",
       "targets": [
         {
-          "expr": "avg(cpu_temperature_celsius)",
+          "expr": "avg(rigbeat_cpu_temperature_celsius)",
           "refId": "A"
         }
       ],
@@ -109,7 +109,7 @@
         "overrides": []
       },
       "gridPos": {
-        "h": 8,
+        "h": 6,
         "w": 6,
         "x": 6,
         "y": 0
@@ -129,7 +129,7 @@
       "pluginVersion": "9.0.0",
       "targets": [
         {
-          "expr": "max(gpu_temperature_celsius)",
+          "expr": "max(rigbeat_gpu_temperature_celsius)",
           "refId": "A"
         }
       ],
@@ -181,7 +181,7 @@
         "overrides": []
       },
       "gridPos": {
-        "h": 8,
+        "h": 6,
         "w": 12,
         "x": 12,
         "y": 0
@@ -200,7 +200,7 @@
       "pluginVersion": "9.0.0",
       "targets": [
         {
-          "expr": "cpu_load_percent",
+          "expr": "rigbeat_cpu_load_percent",
           "legendFormat": "{{core}}",
           "refId": "A"
         }
@@ -259,10 +259,10 @@
         "overrides": []
       },
       "gridPos": {
-        "h": 8,
+        "h": 6,
         "w": 12,
         "x": 0,
-        "y": 8
+        "y": 6
       },
       "id": 5,
       "options": {
@@ -278,7 +278,7 @@
       "pluginVersion": "9.0.0",
       "targets": [
         {
-          "expr": "cpu_temperature_celsius",
+          "expr": "rigbeat_cpu_temperature_celsius",
           "legendFormat": "{{sensor}}",
           "refId": "A"
         }
@@ -337,10 +337,10 @@
         "overrides": []
       },
       "gridPos": {
-        "h": 8,
+        "h": 6,
         "w": 12,
         "x": 12,
-        "y": 8
+        "y": 6
       },
       "id": 6,
       "options": {
@@ -356,7 +356,7 @@
       "pluginVersion": "9.0.0",
       "targets": [
         {
-          "expr": "gpu_temperature_celsius",
+          "expr": "rigbeat_gpu_temperature_celsius",
           "legendFormat": "{{gpu}}",
           "refId": "A"
         }
@@ -394,10 +394,10 @@
         "overrides": []
       },
       "gridPos": {
-        "h": 6,
+        "h": 5,
         "w": 8,
         "x": 0,
-        "y": 16
+        "y": 12
       },
       "id": 7,
       "options": {
@@ -416,23 +416,23 @@
       "pluginVersion": "9.0.0",
       "targets": [
         {
-          "expr": "fan_speed_rpm{type=\"gpu\"}",
-          "legendFormat": "GPU Fan",
+          "expr": "rigbeat_fan_speed_rpm{type=\"gpu\"}",
+          "legendFormat": "{{fan}} ({{type}})",
           "refId": "A"
         },
         {
-          "expr": "fan_speed_rpm{type=\"cpu\"}",
-          "legendFormat": "CPU Fan",
+          "expr": "rigbeat_fan_speed_rpm{type=\"cpu\"}",
+          "legendFormat": "{{fan}} ({{type}})",
           "refId": "B"
         },
         {
-          "expr": "fan_speed_rpm{fan=\"chassis_fan_1\"}",
-          "legendFormat": "Chassis Fan 1",
+          "expr": "rigbeat_fan_speed_rpm{type=\"chassis\"}",
+          "legendFormat": "{{fan}} ({{type}})",
           "refId": "C"
         },
         {
-          "expr": "fan_speed_rpm{fan=\"chassis_fan_2\"}",
-          "legendFormat": "Chassis Fan 2",
+          "expr": "rigbeat_fan_speed_rpm{type=\"other\"}",
+          "legendFormat": "{{fan}} ({{type}})",
           "refId": "D"
         }
       ],
@@ -471,10 +471,10 @@
         "overrides": []
       },
       "gridPos": {
-        "h": 6,
+        "h": 5,
         "w": 8,
         "x": 8,
-        "y": 16
+        "y": 12
       },
       "id": 8,
       "options": {
@@ -493,7 +493,7 @@
       "pluginVersion": "9.0.0",
       "targets": [
         {
-          "expr": "max(gpu_load_percent{type=\"core\"})",
+          "expr": "max(rigbeat_gpu_load_percent{type=\"core\"})",
           "legendFormat": "GPU Load",
           "refId": "A"
         }
@@ -531,10 +531,10 @@
         "overrides": []
       },
       "gridPos": {
-        "h": 6,
+        "h": 5,
         "w": 8,
         "x": 16,
-        "y": 16
+        "y": 12
       },
       "id": 9,
       "options": {
@@ -553,12 +553,155 @@
       "pluginVersion": "9.0.0",
       "targets": [
         {
-          "expr": "max(gpu_memory_used_mb)",
+          "expr": "max(rigbeat_gpu_memory_used_mb)",
           "legendFormat": "VRAM Used",
           "refId": "A"
         }
       ],
       "title": "GPU Memory",
+      "type": "stat"
+    },
+    {
+      "datasource": "Prometheus",
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "palette-classic"
+          },
+          "custom": {
+            "axisLabel": "",
+            "axisPlacement": "auto",
+            "barAlignment": 0,
+            "drawStyle": "line",
+            "fillOpacity": 10,
+            "gradientMode": "none",
+            "hideFrom": {
+              "tooltip": false,
+              "viz": false,
+              "legend": false
+            },
+            "lineInterpolation": "smooth",
+            "lineWidth": 2,
+            "pointSize": 5,
+            "scaleDistribution": {
+              "type": "linear"
+            },
+            "showPoints": "never",
+            "spanNulls": true
+          },
+          "mappings": [],
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              },
+              {
+                "color": "yellow",
+                "value": 500
+              },
+              {
+                "color": "red",
+                "value": 200
+              }
+            ]
+          },
+          "unit": "rpm"
+        },
+        "overrides": []
+      },
+      "gridPos": {
+        "h": 5,
+        "w": 12,
+        "x": 0,
+        "y": 17
+      },
+      "id": 10,
+      "options": {
+        "legend": {
+          "calcs": ["last", "min"],
+          "displayMode": "table",
+          "placement": "bottom"
+        },
+        "tooltip": {
+          "mode": "multi"
+        }
+      },
+      "pluginVersion": "9.0.0",
+      "targets": [
+        {
+          "expr": "rigbeat_fan_speed_rpm",
+          "legendFormat": "{{fan}} ({{type}})",
+          "refId": "A"
+        }
+      ],
+      "title": "Fan Speed History",
+      "type": "timeseries"
+    },
+    {
+      "datasource": "Prometheus",
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "thresholds"
+          },
+          "mappings": [],
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              },
+              {
+                "color": "yellow",
+                "value": 12
+              },
+              {
+                "color": "red",
+                "value": 16
+              }
+            ]
+          },
+          "unit": "decbytes"
+        },
+        "overrides": []
+      },
+      "gridPos": {
+        "h": 5,
+        "w": 12,
+        "x": 12,
+        "y": 17
+      },
+      "id": 11,
+      "options": {
+        "colorMode": "value",
+        "graphMode": "area",
+        "justifyMode": "auto",
+        "orientation": "auto",
+        "reduceOptions": {
+          "calcs": ["lastNotNull"],
+          "fields": "",
+          "values": false
+        },
+        "text": {},
+        "textMode": "auto"
+      },
+      "pluginVersion": "9.0.0",
+      "targets": [
+        {
+          "expr": "rigbeat_memory_used_gb",
+          "legendFormat": "Used",
+          "refId": "A"
+        },
+        {
+          "expr": "rigbeat_memory_available_gb",
+          "legendFormat": "Available",
+          "refId": "B"
+        }
+      ],
+      "title": "System Memory",
       "type": "stat"
     }
   ],

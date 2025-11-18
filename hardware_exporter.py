@@ -11,6 +11,7 @@ Requirements:
 import time
 import wmi
 import logging
+import re
 from prometheus_client import start_http_server, Gauge, Info
 from typing import Dict, List
 import argparse
@@ -23,21 +24,21 @@ logging.basicConfig(
 logger = logging.getLogger(__name__)
 
 # Prometheus metrics
-cpu_temp = Gauge('cpu_temperature_celsius', 'CPU temperature in Celsius', ['sensor'])
-cpu_load = Gauge('cpu_load_percent', 'CPU load percentage', ['core'])
-cpu_clock = Gauge('cpu_clock_mhz', 'CPU clock speed in MHz', ['core'])
+cpu_temp = Gauge('rigbeat_cpu_temperature_celsius', 'CPU temperature in Celsius', ['sensor'])
+cpu_load = Gauge('rigbeat_cpu_load_percent', 'CPU load percentage', ['core'])
+cpu_clock = Gauge('rigbeat_cpu_clock_mhz', 'CPU clock speed in MHz', ['core'])
 
-gpu_temp = Gauge('gpu_temperature_celsius', 'GPU temperature in Celsius', ['gpu'])
-gpu_load = Gauge('gpu_load_percent', 'GPU load percentage', ['gpu', 'type'])
-gpu_memory = Gauge('gpu_memory_used_mb', 'GPU memory used in MB', ['gpu'])
-gpu_clock = Gauge('gpu_clock_mhz', 'GPU clock speed in MHz', ['gpu', 'type'])
+gpu_temp = Gauge('rigbeat_gpu_temperature_celsius', 'GPU temperature in Celsius', ['gpu'])
+gpu_load = Gauge('rigbeat_gpu_load_percent', 'GPU load percentage', ['gpu', 'type'])
+gpu_memory = Gauge('rigbeat_gpu_memory_used_mb', 'GPU memory used in MB', ['gpu'])
+gpu_clock = Gauge('rigbeat_gpu_clock_mhz', 'GPU clock speed in MHz', ['gpu', 'type'])
 
-fan_rpm = Gauge('fan_speed_rpm', 'Fan speed in RPM', ['fan', 'type'])
+fan_rpm = Gauge('rigbeat_fan_speed_rpm', 'Fan speed in RPM', ['fan', 'type'])
 
-memory_used = Gauge('memory_used_gb', 'System memory used in GB')
-memory_available = Gauge('memory_available_gb', 'System memory available in GB')
+memory_used = Gauge('rigbeat_memory_used_gb', 'System memory used in GB')
+memory_available = Gauge('rigbeat_memory_available_gb', 'System memory available in GB')
 
-system_info = Info('system', 'System information')
+system_info = Info('rigbeat_system', 'System information')
 
 
 class HardwareMonitor:
@@ -73,7 +74,11 @@ class HardwareMonitor:
                 sensor_type = sensor.SensorType
                 sensor_name = sensor.Name
                 value = float(sensor.Value) if sensor.Value else 0
-                parent = sensor.Parent
+                parent = getattr(sensor, 'Parent', '') or ''
+
+                # Skip sensors with no name or invalid values
+                if not sensor_name or value < 0:
+                    continue
 
                 # CPU Temperature
                 if sensor_type == "Temperature" and "CPU" in parent:
@@ -114,9 +119,40 @@ class HardwareMonitor:
 
                 # Fan Speeds
                 elif sensor_type == "Fan":
-                    # Create clean fan labels
-                    fan_name = sensor_name.lower().replace(" ", "_").replace("#", "")
-                    fan_rpm.labels(fan=fan_name).set(value)
+                    # Categorize and label fans intelligently
+                    fan_name_lower = sensor_name.lower()
+
+                    if "gpu" in fan_name_lower or "vga" in fan_name_lower:
+                        fan_type = "gpu"
+                        # Extract number from sensor name more reliably
+                        numbers = re.findall(r'\d+', sensor_name)
+                        if numbers:
+                            fan_label = f"gpu_fan_{numbers[0]}"
+                        else:
+                            fan_label = "gpu_fan"
+                    elif "cpu" in fan_name_lower:
+                        fan_type = "cpu"
+                        numbers = re.findall(r'\d+', sensor_name)
+                        if numbers:
+                            fan_label = f"cpu_fan_{numbers[0]}"
+                        else:
+                            fan_label = "cpu_fan"
+                    elif "cha" in fan_name_lower or "chassis" in fan_name_lower or "case" in fan_name_lower:
+                        fan_type = "chassis"
+                        numbers = re.findall(r'\d+', sensor_name)
+                        if numbers:
+                            fan_label = f"chassis_fan_{numbers[0]}"
+                        else:
+                            fan_label = "chassis_fan"
+                    else:
+                        fan_type = "other"
+                        # Sanitize fan label for Prometheus (alphanumeric + underscore only)
+                        fan_label = re.sub(r'[^a-zA-Z0-9_]', '_', sensor_name.lower())
+                        fan_label = re.sub(r'_+', '_', fan_label).strip('_')
+                        if not fan_label:
+                            fan_label = "unknown_fan"
+
+                    fan_rpm.labels(fan=fan_label, type=fan_type).set(value)
 
                 # Memory (from motherboard/system)
                 elif sensor_type == "Data":
@@ -140,15 +176,23 @@ class HardwareMonitor:
             }
 
             for hw in hardware:
-                hw_type = hw.HardwareType
-                hw_name = hw.Name
+                hw_type = getattr(hw, 'HardwareType', '') or ''
+                hw_name = getattr(hw, 'Name', '') or 'Unknown'
 
-                if hw_type == "CPU" or "Processor" in hw_type:
+                if not hw_type:  # Skip if no hardware type
+                    continue
+
+                logger.debug(f"Found hardware: Type={hw_type}, Name={hw_name}")
+
+                if "CPU" in hw_type or "Processor" in hw_type:
                     info['cpu'] = hw_name
-                elif hw_type == "GpuNvidia" or hw_type == "GpuAmd":
+                    logger.info(f"Detected CPU: {hw_name}")
+                elif "Gpu" in hw_type or hw_type == "GpuNvidia" or hw_type == "GpuAmd":
                     info['gpu'] = hw_name
-                elif hw_type == "Motherboard":
+                    logger.info(f"Detected GPU: {hw_name}")
+                elif "Motherboard" in hw_type:
                     info['motherboard'] = hw_name
+                    logger.info(f"Detected Motherboard: {hw_name}")
 
             return info
         except Exception as e:
@@ -160,7 +204,19 @@ def main():
     parser = argparse.ArgumentParser(description='Rigbeat - Prometheus Exporter')
     parser.add_argument('--port', type=int, default=9182, help='Port to expose metrics (default: 9182)')
     parser.add_argument('--interval', type=int, default=2, help='Update interval in seconds (default: 2)')
+    parser.add_argument('--logfile', type=str, help='Log file path (e.g., rigbeat.log)')
+    parser.add_argument('--debug', action='store_true', help='Enable debug logging')
     args = parser.parse_args()
+
+    # Configure file logging if requested
+    if args.logfile:
+        file_handler = logging.FileHandler(args.logfile)
+        file_handler.setFormatter(logging.Formatter('%(asctime)s - %(name)s - %(levelname)s - %(message)s'))
+        logger.addHandler(file_handler)
+
+    # Set debug level if requested
+    if args.debug:
+        logger.setLevel(logging.DEBUG)
 
     logger.info(f"Starting Rigbeat Exporter on port {args.port}")
     logger.info(f"Update interval: {args.interval} seconds")

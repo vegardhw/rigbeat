@@ -5,9 +5,13 @@
         "**/node_modules/**",
         "**/vscode-extension/**",
         "**/.git/**",
-        ".vscode"
+        ".vscode",
+        "**/*.py",
+        "**/*.json"
     ],
     "words": [
+        "Alertmanager",
+        "alertmanagers",
         "bdist",
         "pylint",
         "pytest",

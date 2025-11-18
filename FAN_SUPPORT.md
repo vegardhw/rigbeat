@@ -12,77 +12,78 @@ The exporter automatically categorizes fans into these types:
 
 ### 🔥 CPU Fans
 - **Detection**: Sensors with "CPU" in the name
-- **Labels**: `cpu_fan`
+- **Labels**: `cpu_fan`, `cpu_fan_1`, `cpu_fan_2` (numbered if multiple)
 - **Type**: `cpu`
-- **Examples**: "CPU Fan", "CPU Fan #1"
+- **Examples**: "CPU Fan", "CPU Fan #1", "CPU Fan 2"
 
 ### 📦 Chassis Fans
 - **Detection**: Sensors with "CHA", "Chassis", or "Case" in the name
-- **Labels**: `chassis_fan_1`, `chassis_fan_2`, `chassis_fan_3`, `chassis_fan_4`
+- **Labels**: `chassis_fan_1`, `chassis_fan_2`, etc. (auto-numbered from sensor name)
 - **Type**: `chassis`
-- **Examples**: "CHA1 Fan", "Chassis Fan #1", "Case Fan 1"
+- **Examples**: "CHA1 Fan", "Chassis Fan #1", "Case Fan 2"
 
 ### 🔧 Other Fans
 - **Detection**: Any other fan sensors (pumps, etc.)
-- **Labels**: Cleaned version of sensor name
+- **Labels**: Sanitized version of sensor name (Prometheus-compliant)
 - **Type**: `other`
-- **Examples**: "Pump Fan", "AIO Pump"
+- **Examples**: "Pump Fan" → `pump_fan`, "AIO Pump" → `aio_pump`, "Fan #2" → `fan_2`
 
 ## Prometheus Metrics
 
 All fans are exposed with this metric format:
 
 ```
-fan_speed_rpm{fan="LABEL", type="TYPE"} VALUE
+rigbeat_fan_speed_rpm{fan="LABEL", type="TYPE"} VALUE
 ```
 
 ### Example Metrics Output
 
 ```prometheus
 # GPU fans
-fan_speed_rpm{fan="gpu_fan", type="gpu"} 1850.0
+rigbeat_fan_speed_rpm{fan="gpu_fan", type="gpu"} 1850.0
 
 # CPU fans
-fan_speed_rpm{fan="cpu_fan", type="cpu"} 1450.0
+rigbeat_fan_speed_rpm{fan="cpu_fan", type="cpu"} 1450.0
 
 # Chassis fans
-fan_speed_rpm{fan="chassis_fan_1", type="chassis"} 1200.0
-fan_speed_rpm{fan="chassis_fan_2", type="chassis"} 1150.0
+rigbeat_fan_speed_rpm{fan="chassis_fan_1", type="chassis"} 1200.0
+rigbeat_fan_speed_rpm{fan="chassis_fan_2", type="chassis"} 1150.0
 
 # Other
-fan_speed_rpm{fan="pump_fan", type="other"} 2500.0
+rigbeat_fan_speed_rpm{fan="pump_fan", type="other"} 2500.0
+rigbeat_fan_speed_rpm{fan="fan_2", type="other"} 1100.0
 ```
 
 ## Grafana Dashboard Queries
 
 ### Display All Fans
 ```promql
-fan_speed_rpm
+rigbeat_fan_speed_rpm
 ```
 
 ### GPU Fan Only
 ```promql
-fan_speed_rpm{type="gpu"}
+rigbeat_fan_speed_rpm{type="gpu"}
 ```
 
 ### CPU Fan Only
 ```promql
-fan_speed_rpm{type="cpu"}
+rigbeat_fan_speed_rpm{type="cpu"}
 ```
 
 ### All Chassis Fans
 ```promql
-fan_speed_rpm{type="chassis"}
+rigbeat_fan_speed_rpm{type="chassis"}
 ```
 
 ### Specific Chassis Fan
 ```promql
-fan_speed_rpm{fan="chassis_fan_1"}
+rigbeat_fan_speed_rpm{fan="chassis_fan_1"}
 ```
 
 ### Alerting: Any Fan Below Threshold
 ```promql
-fan_speed_rpm < 500
+rigbeat_fan_speed_rpm < 500
 ```
 
 ## Testing Fan Detection
@@ -134,7 +135,7 @@ If your fans aren't being detected correctly, edit `hardware_exporter.py`:
 ```python
 elif sensor_type == "Fan":
     fan_name_lower = sensor_name.lower()
-    
+
     # Add your custom pattern here
     if "my_custom_fan" in fan_name_lower:
         fan_type = "custom"
@@ -142,18 +143,21 @@ elif sensor_type == "Fan":
     # ... rest of the code
 ```
 
-### Example: Custom Chassis Fan Numbering
+### Example: Improved Number Detection
+
+The current system automatically extracts numbers from sensor names:
 
 ```python
-elif "cha" in fan_name_lower or "chassis" in fan_name_lower:
-    fan_type = "chassis"
-    
-    # Custom mapping for your motherboard
-    if "sys1" in sensor_name:
-        fan_label = "chassis_fan_1"
-    elif "sys2" in sensor_name:
-        fan_label = "chassis_fan_2"
-    # ... etc
+elif sensor_type == "Fan":
+    fan_name_lower = sensor_name.lower()
+
+    if "gpu" in fan_name_lower or "vga" in fan_name_lower:
+        fan_type = "gpu"
+        numbers = re.findall(r'\d+', sensor_name)
+        if numbers:
+            fan_label = f"gpu_fan_{numbers[0]}"
+        else:
+            fan_label = "gpu_fan"
 ```
 
 ## Common Issues
@@ -184,28 +188,22 @@ elif "cha" in fan_name_lower or "chassis" in fan_name_lower:
 
 ### Issue: Wrong Fan Label
 
-**Cause:** Fan name doesn't match detection patterns
+**Cause:** Fan name doesn't match detection patterns or falls into "other" category
 
 **Solution:** 
 1. Run `python test_fans.py` to see actual sensor names
-2. Update detection logic in `hardware_exporter.py`
-3. Add custom pattern matching
+2. Fans not matching GPU/CPU/Chassis patterns are labeled as "other" type
+3. For edge cases, update detection logic in `hardware_exporter.py`
 
 ### Issue: Duplicate Fan Labels
 
-**Cause:** Multiple fans matching the same pattern
+**Cause:** This is now automatically handled by regex number extraction
 
-**Solution:**
-Add number detection to differentiate:
-
-```python
-if "fan" in fan_name_lower:
-    # Extract number from sensor name
-    import re
-    number = re.search(r'(\d+)', sensor_name)
-    if number:
-        fan_label = f"chassis_fan_{number.group(1)}"
-```
+**Current Implementation:**
+The system automatically extracts numbers from sensor names using `re.findall(r'\d+', sensor_name)`:
+- "GPU Fan #12" → `gpu_fan_12`
+- "Chassis Fan 3" → `chassis_fan_3`
+- "CHA_FAN_2" → `chassis_fan_2`
 
 ## Best Practices
 
@@ -239,7 +237,7 @@ if "fan" in fan_name_lower:
 
 ```yaml
 - alert: FanStopped
-  expr: fan_speed_rpm < 100
+  expr: rigbeat_fan_speed_rpm < 100
   for: 1m
   labels:
     severity: critical
@@ -260,12 +258,12 @@ if "fan" in fan_name_lower:
 ### Detected Metrics
 
 ```
-fan_speed_rpm{fan="gpu_fan", type="gpu"} 1850
-fan_speed_rpm{fan="cpu_fan", type="cpu"} 1450
-fan_speed_rpm{fan="chassis_fan_1", type="chassis"} 1200  # Front intake
-fan_speed_rpm{fan="chassis_fan_2", type="chassis"} 1150  # Front intake
-fan_speed_rpm{fan="chassis_fan_3", type="chassis"} 1100  # Rear exhaust
-fan_speed_rpm{fan="chassis_fan_4", type="chassis"} 1050  # Top exhaust
+rigbeat_fan_speed_rpm{fan="gpu_fan", type="gpu"} 1850
+rigbeat_fan_speed_rpm{fan="cpu_fan", type="cpu"} 1450
+rigbeat_fan_speed_rpm{fan="chassis_fan_1", type="chassis"} 1200  # Front intake
+rigbeat_fan_speed_rpm{fan="chassis_fan_2", type="chassis"} 1150  # Front intake
+rigbeat_fan_speed_rpm{fan="chassis_fan_3", type="chassis"} 1100  # Rear exhaust
+rigbeat_fan_speed_rpm{fan="chassis_fan_4", type="chassis"} 1050  # Top exhaust
 ```
 
 ## Support

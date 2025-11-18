@@ -12,11 +12,13 @@ A lightweight Prometheus exporter for Windows that monitors PC hardware metrics 
 
 - 🌡️ **CPU Temperature** - Per-core temperature monitoring
 - 🎮 **GPU Metrics** - Temperature, load, memory usage, clock speeds (NVIDIA/AMD)
-- 💨 **Fan Speeds** - All detected fans (GPU, CPU, Chassis 1-4)
+- 💨 **Smart Fan Detection** - Auto-categorizes GPU, CPU, Chassis, and other fans
 - 📊 **System Load** - CPU/GPU utilization per core
 - ⚡ **Clock Speeds** - Real-time CPU/GPU frequencies
+- 📝 **Enhanced Logging** - File logging and debug modes
+- 🔧 **Fan Testing** - Built-in fan detection diagnostics
 - 🎯 **Low Overhead** - <50MB RAM, minimal CPU usage
-- 📱 **Mobile Friendly** - Access from any device with a browser
+- 📱 **Mobile Friendly** - Optimized for tablets and phones
 - 🔄 **Auto-refresh** - 1-5 second update intervals
 - 📈 **Historical Data** - Track trends, identify thermal issues
 
@@ -31,28 +33,57 @@ A lightweight Prometheus exporter for Windows that monitors PC hardware metrics 
 
 ### Installation
 
-1. **Install LibreHardwareMonitor** (provides sensor access)
+#### Option 1: Quick Install Script (Recommended)
+
+1. **Download Rigbeat**
+   ```bash
+   # Download the latest release from:
+   # https://github.com/vegardhw/rigbeat/releases
+   # Or clone: git clone https://github.com/vegardhw/rigbeat.git
+   ```
+
+2. **Install LibreHardwareMonitor** (provides sensor access)
    ```bash
    # Download from: https://github.com/LibreHardwareMonitor/LibreHardwareMonitor/releases
    # Extract and run LibreHardwareMonitor.exe as Administrator
+   # Enable: Options → "WMI" (required!)
    # Enable: Options → "Run On Windows Startup" (optional)
    ```
 
-2. **Install the exporter**
+3. **Run install script**
    ```bash
-   pip install rigbeat
+   # Right-click install_script.bat → "Run as Administrator"
+   # This will:
+   # - Install Python dependencies
+   # - Set up Windows service
+   # - Copy files to C:\ProgramData\Rigbeat\
+   ```
+
+#### Option 2: Manual Installation
+
+1. **Install dependencies**
+   ```bash
+   pip install -r requirements.txt
+   ```
+
+2. **Test fan detection** (recommended)
+   ```bash
+   python test_fans.py
    ```
 
 3. **Run the exporter**
    ```bash
    # Simple run
-   rigbeat
+   python hardware_exporter.py
 
-   # Custom port
-   rigbeat --port 9182
+   # With debug logging
+   python hardware_exporter.py --debug
 
-   # Custom update interval (in seconds)
-   rigbeat --interval 2
+   # Save logs to file
+   python hardware_exporter.py --logfile rigbeat.log
+
+   # Custom port and interval
+   python hardware_exporter.py --port 9183 --interval 5
    ```
 
 4. **Verify it's working**
@@ -61,25 +92,30 @@ A lightweight Prometheus exporter for Windows that monitors PC hardware metrics 
    http://localhost:9182/metrics
    
    # You should see Prometheus metrics like:
-   # cpu_temperature_celsius{sensor="CPU Package"} 45.0
-   # gpu_temperature_celsius{gpu="NVIDIA GeForce RTX 4080"} 52.0
-   # fan_speed_rpm{fan="cpu_fan"} 1450.0
+   # rigbeat_cpu_temperature_celsius{sensor="CPU Package"} 45.0
+   # rigbeat_gpu_temperature_celsius{gpu="NVIDIA GeForce RTX 4080"} 52.0
+   # rigbeat_fan_speed_rpm{fan="gpu_fan_1", type="gpu"} 1850.0
+   # rigbeat_fan_speed_rpm{fan="cpu_fan", type="cpu"} 1450.0
+   # rigbeat_fan_speed_rpm{fan="chassis_fan_1", type="chassis"} 1200.0
    ```
 
-### Install as Windows Service (Optional)
+### Install as Windows Service
+
+The install script automatically sets this up, but you can also do it manually:
 
 ```bash
-# Install service (runs on startup)
-rigbeat --install-service
+# Install service (from the Rigbeat directory)
+cd "C:\ProgramData\Rigbeat"
+python install_service.py install
 
 # Start service
-net start rigbeat
+net start Rigbeat
 
 # Stop service
-net stop rigbeat
+net stop Rigbeat
 
-# Uninstall service
-rigbeat --uninstall-service
+# Remove service
+python install_service.py remove
 ```
 
 ## 📊 Grafana Dashboard Setup
@@ -103,10 +139,14 @@ Add this to your `prometheus.yml`:
 
 ```yaml
 scrape_configs:
-  - job_name: 'rigbeat'
+  - job_name: 'rigbeat-hardware'
     scrape_interval: 2s
     static_configs:
       - targets: ['localhost:9182']
+        labels:
+          instance: 'gaming-pc'
+          environment: 'home'
+          service: 'rigbeat'
 ```
 
 Restart Prometheus and the metrics will be available in Grafana.
@@ -153,41 +193,49 @@ Access Grafana at http://localhost:3000 (admin/admin)
 
 | Metric | Description | Labels |
 |--------|-------------|--------|
-| `cpu_temperature_celsius` | CPU temperature | `sensor` |
-| `cpu_load_percent` | CPU load per core | `core` |
-| `cpu_clock_mhz` | CPU clock speed | `core` |
-| `gpu_temperature_celsius` | GPU temperature | `gpu` |
-| `gpu_load_percent` | GPU load | `gpu`, `type` |
-| `gpu_memory_used_mb` | GPU memory usage | `gpu` |
-| `gpu_clock_mhz` | GPU clock speed | `gpu`, `type` |
-| `fan_speed_rpm` | Fan speed | `fan` |
-| `memory_used_gb` | System RAM used | - |
-| `memory_available_gb` | System RAM available | - |
-| `system_info` | System information | `cpu`, `gpu`, `motherboard` |
+| `rigbeat_cpu_temperature_celsius` | CPU temperature | `sensor` |
+| `rigbeat_cpu_load_percent` | CPU load per core | `core` |
+| `rigbeat_cpu_clock_mhz` | CPU clock speed | `core` |
+| `rigbeat_gpu_temperature_celsius` | GPU temperature | `gpu` |
+| `rigbeat_gpu_load_percent` | GPU load | `gpu`, `type` |
+| `rigbeat_gpu_memory_used_mb` | GPU memory usage | `gpu` |
+| `rigbeat_gpu_clock_mhz` | GPU clock speed | `gpu`, `type` |
+| `rigbeat_fan_speed_rpm` | Fan speed with smart categorization | `fan`, `type` |
+| `rigbeat_memory_used_gb` | System RAM used | - |
+| `rigbeat_memory_available_gb` | System RAM available | - |
+| `rigbeat_system_info` | System information | `cpu`, `gpu`, `motherboard` |
+
+### Fan Types
+- `type="gpu"`: Graphics card fans (e.g., `gpu_fan_1`, `gpu_fan_2`)
+- `type="cpu"`: CPU/cooler fans (e.g., `cpu_fan`, `cpu_fan_1`)
+- `type="chassis"`: Case fans (e.g., `chassis_fan_1`, `chassis_fan_2`)
+- `type="other"`: Pumps, custom fans (e.g., `pump_fan`, `fan_2`)
 
 ## 🔧 Configuration
 
 ### Command Line Options
 
 ```bash
-rigbeat --help
+python hardware_exporter.py --help
 
 Options:
   --port PORT           Port to expose metrics (default: 9182)
   --interval INTERVAL   Update interval in seconds (default: 2)
-  --install-service     Install as Windows service
-  --uninstall-service   Uninstall Windows service
+  --logfile PATH        Save logs to file (e.g., --logfile rigbeat.log)
   --debug               Enable debug logging
 ```
 
-### Environment Variables
+### Testing and Diagnostics
 
 ```bash
-# Set custom port
-set RIGBEAT_PORT=9182
+# Test fan detection (shows all detected fans)
+python test_fans.py
 
-# Set update interval
-set RIGBEAT_INTERVAL=2
+# Run with debug output
+python hardware_exporter.py --debug
+
+# Save detailed logs for troubleshooting
+python hardware_exporter.py --debug --logfile debug.log
 ```
 
 ## 🎨 Dashboard Features
@@ -206,23 +254,40 @@ set RIGBEAT_INTERVAL=2
 - Make sure LibreHardwareMonitor is running
 - Run LibreHardwareMonitor as Administrator
 - Check: Options → Enable WMI is checked
+- Restart LibreHardwareMonitor after enabling WMI
 
-### No sensors showing up
+### No sensors/fans showing up
 
-- Some motherboards don't expose all sensors
-- Try running LibreHardwareMonitor first to see what's detected
+- Run `python test_fans.py` to see what's detected
+- Check LibreHardwareMonitor shows the sensors
+- Some motherboards don't expose all sensors via WMI
 - Update motherboard BIOS/chipset drivers
+
+### Fans not categorized correctly
+
+- Run `python test_fans.py` to see actual sensor names
+- Fans not matching GPU/CPU/Chassis patterns are labeled as "other" type
+- This is normal for some motherboards (e.g., "Fan #1", "Fan #2")
+- Check `FAN_SUPPORT.md` for customization options
 
 ### High CPU usage
 
 - Increase `--interval` to 5 or 10 seconds
 - Some hardware has slow sensor access
+- Use `--debug` to identify slow sensors
+
+### Service logs
+
+- Windows service logs: `C:\ProgramData\Rigbeat\service.log`
+- Manual run logs: Use `--logfile` option
+- Debug output: Use `--debug` flag
 
 ### Grafana shows "No data"
 
 - Check Prometheus is scraping: http://localhost:9090/targets
 - Verify metrics endpoint works: http://localhost:9182/metrics
 - Check Prometheus datasource in Grafana settings
+- Ensure job name matches: `rigbeat-hardware`
 
 ## 🛠️ Development
 
