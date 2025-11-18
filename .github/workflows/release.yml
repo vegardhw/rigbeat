@@ -1,0 +1,120 @@
+name: Release
+
+permissions:
+  contents: read
+
+on:
+  release:
+    types: [published]
+
+  # Manual trigger for testing
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: 'Release tag'
+        required: true
+        default: 'v1.0.0'
+
+jobs:
+  build-release:
+    permissions:
+      contents: write
+    runs-on: windows-latest
+
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v3
+
+    - name: Set up Python
+      uses: actions/setup-python@v4
+      with:
+        python-version: '3.10'
+
+    - name: Install dependencies
+      run: |
+        python -m pip install --upgrade pip
+        pip install -r requirements.txt
+
+    - name: Create release package
+      run: |
+        # Create release directory
+        mkdir rigbeat-release
+
+        # Copy main files
+        copy hardware_exporter.py rigbeat-release\
+        copy install_service.py rigbeat-release\
+        copy test_fans.py rigbeat-release\
+        copy requirements.txt rigbeat-release\
+        copy README.md rigbeat-release\
+        copy LICENSE rigbeat-release\
+        copy FAN_SUPPORT.md rigbeat-release\
+        copy install_script.bat rigbeat-release\
+        copy prometheus_config.txt rigbeat-release\
+        copy grafana_dashboard.json rigbeat-release\
+        copy RELEASE_NOTES.md rigbeat-release\
+
+        # Create installation instructions
+        echo "# Rigbeat Installation" > rigbeat-release\INSTALL.txt
+        echo "" >> rigbeat-release\INSTALL.txt
+        echo "1. Install LibreHardwareMonitor from:" >> rigbeat-release\INSTALL.txt
+        echo "   https://github.com/LibreHardwareMonitor/LibreHardwareMonitor/releases" >> rigbeat-release\INSTALL.txt
+        echo "" >> rigbeat-release\INSTALL.txt
+        echo "2. Run LibreHardwareMonitor as Administrator" >> rigbeat-release\INSTALL.txt
+        echo "   - Enable WMI in Options (required!)" >> rigbeat-release\INSTALL.txt
+        echo "" >> rigbeat-release\INSTALL.txt
+        echo "3. Right-click install_script.bat and 'Run as Administrator'" >> rigbeat-release\INSTALL.txt
+        echo "" >> rigbeat-release\INSTALL.txt
+        echo "4. Test: python test_fans.py" >> rigbeat-release\INSTALL.txt
+        echo "" >> rigbeat-release\INSTALL.txt
+        echo "5. Start service: net start Rigbeat" >> rigbeat-release\INSTALL.txt
+        echo "" >> rigbeat-release\INSTALL.txt
+        echo "6. Visit: http://localhost:9182/metrics" >> rigbeat-release\INSTALL.txt
+
+    - name: Validate release package
+      run: |
+        cd rigbeat-release
+        python -m py_compile hardware_exporter.py
+        python -m py_compile install_service.py
+        python -m py_compile test_fans.py
+        python hardware_exporter.py --help
+        echo "✓ Release package validated"
+
+    - name: Create ZIP archive
+      run: |
+        powershell Compress-Archive -Path rigbeat-release\* -DestinationPath rigbeat-${{ github.event.inputs.tag || github.ref_name }}.zip
+
+    - name: Upload release assets
+      if: github.event_name == 'release'
+      uses: softprops/action-gh-release@v1
+      with:
+        files: |
+          rigbeat-${{ github.ref_name }}.zip
+          grafana_dashboard.json
+          prometheus_config.txt
+          FAN_SUPPORT.md
+        generate_release_notes: false
+        body_path: RELEASE_NOTES.md
+
+  update-docs:
+    permissions:
+      contents: write
+    needs: build-release
+    runs-on: ubuntu-latest
+    if: github.event_name == 'release'
+
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v3
+
+    - name: Update README version badge
+      run: |
+        # Update version badge in README
+        sed -i "s/version-v[0-9]\+\.[0-9]\+\.[0-9]\+/version-${{ github.ref_name }}/" README.md
+
+    - name: Commit version update
+      run: |
+        git config --local user.email "action@github.com"
+        git config --local user.name "GitHub Action"
+        git add README.md
+        git commit -m "Update version badge to ${{ github.ref_name }}" || exit 0
+        git push

@@ -7,4 +7,248 @@ Requirements:
     - Python 3.8+
     - pip install prometheus-client wmi pywin32
 """
+
 import time
+import wmi
+import logging
+import re
+from prometheus_client import start_http_server, Gauge, Info
+from typing import Dict, List
+import argparse
+
+# Configure logging
+logging.basicConfig(
+    level=logging.INFO,
+    format='%(asctime)s - %(name)s - %(levelname)s - %(message)s'
+)
+logger = logging.getLogger(__name__)
+
+# Prometheus metrics
+cpu_temp = Gauge('rigbeat_cpu_temperature_celsius', 'CPU temperature in Celsius', ['sensor'])
+cpu_load = Gauge('rigbeat_cpu_load_percent', 'CPU load percentage', ['core'])
+cpu_clock = Gauge('rigbeat_cpu_clock_mhz', 'CPU clock speed in MHz', ['core'])
+
+gpu_temp = Gauge('rigbeat_gpu_temperature_celsius', 'GPU temperature in Celsius', ['gpu'])
+gpu_load = Gauge('rigbeat_gpu_load_percent', 'GPU load percentage', ['gpu', 'type'])
+gpu_memory = Gauge('rigbeat_gpu_memory_used_mb', 'GPU memory used in MB', ['gpu'])
+gpu_clock = Gauge('rigbeat_gpu_clock_mhz', 'GPU clock speed in MHz', ['gpu', 'type'])
+
+fan_rpm = Gauge('rigbeat_fan_speed_rpm', 'Fan speed in RPM', ['fan', 'type'])
+
+memory_used = Gauge('rigbeat_memory_used_gb', 'System memory used in GB')
+memory_available = Gauge('rigbeat_memory_available_gb', 'System memory available in GB')
+
+system_info = Info('rigbeat_system', 'System information')
+
+
+class HardwareMonitor:
+    """Monitors hardware sensors via WMI (LibreHardwareMonitor)"""
+
+    def __init__(self):
+        try:
+            self.w = wmi.WMI(namespace="root\\LibreHardwareMonitor")
+            logger.info("Successfully connected to LibreHardwareMonitor WMI")
+        except Exception as e:
+            logger.error(f"Failed to connect to LibreHardwareMonitor WMI: {e}")
+            logger.error("Make sure LibreHardwareMonitor is running with WMI enabled!")
+            raise
+
+    def get_sensors(self) -> List:
+        """Get all hardware sensors"""
+        try:
+            return self.w.Sensor()
+        except Exception as e:
+            logger.error(f"Error reading sensors: {e}")
+            return []
+
+    def update_metrics(self):
+        """Update all Prometheus metrics"""
+        sensors = self.get_sensors()
+
+        if not sensors:
+            logger.warning("No sensors found - is LibreHardwareMonitor running?")
+            return
+
+        for sensor in sensors:
+            try:
+                sensor_type = sensor.SensorType
+                sensor_name = sensor.Name
+                value = float(sensor.Value) if sensor.Value else 0
+                parent = getattr(sensor, 'Parent', '') or ''
+
+                # Skip sensors with no name or invalid values
+                if not sensor_name or value < 0:
+                    continue
+
+                # CPU Temperature
+                if sensor_type == "Temperature" and "CPU" in parent:
+                    cpu_temp.labels(sensor=sensor_name).set(value)
+
+                # CPU Load
+                elif sensor_type == "Load" and "CPU" in parent:
+                    # Clean up core names (e.g., "CPU Core #1" -> "core1")
+                    core_label = sensor_name.lower().replace("cpu ", "").replace("#", "").replace(" ", "")
+                    cpu_load.labels(core=core_label).set(value)
+
+                # CPU Clock
+                elif sensor_type == "Clock" and "CPU" in parent:
+                    core_label = sensor_name.lower().replace("cpu ", "").replace("#", "").replace(" ", "")
+                    cpu_clock.labels(core=core_label).set(value)
+
+                # GPU Temperature
+                elif sensor_type == "Temperature" and any(x in parent for x in ["GPU", "NVIDIA", "AMD", "Radeon"]):
+                    gpu_name = parent.split("/")[-1] if "/" in parent else "gpu0"
+                    gpu_temp.labels(gpu=gpu_name).set(value)
+
+                # GPU Load
+                elif sensor_type == "Load" and any(x in parent for x in ["GPU", "NVIDIA", "AMD", "Radeon"]):
+                    gpu_name = parent.split("/")[-1] if "/" in parent else "gpu0"
+                    load_type = "core" if "Core" in sensor_name else "memory" if "Memory" in sensor_name else "other"
+                    gpu_load.labels(gpu=gpu_name, type=load_type).set(value)
+
+                # GPU Memory
+                elif sensor_type == "SmallData" and "Memory Used" in sensor_name:
+                    gpu_name = parent.split("/")[-1] if "/" in parent else "gpu0"
+                    gpu_memory.labels(gpu=gpu_name).set(value)
+
+                # GPU Clock
+                elif sensor_type == "Clock" and any(x in parent for x in ["GPU", "NVIDIA", "AMD", "Radeon"]):
+                    gpu_name = parent.split("/")[-1] if "/" in parent else "gpu0"
+                    clock_type = "core" if "Core" in sensor_name else "memory" if "Memory" in sensor_name else "other"
+                    gpu_clock.labels(gpu=gpu_name, type=clock_type).set(value)
+
+                # Fan Speeds
+                elif sensor_type == "Fan":
+                    # Categorize and label fans intelligently
+                    fan_name_lower = sensor_name.lower()
+
+                    if "gpu" in fan_name_lower or "vga" in fan_name_lower:
+                        fan_type = "gpu"
+                        # Extract number from sensor name more reliably
+                        numbers = re.findall(r'\d+', sensor_name)
+                        if numbers:
+                            fan_label = f"gpu_fan_{numbers[0]}"
+                        else:
+                            fan_label = "gpu_fan"
+                    elif "cpu" in fan_name_lower:
+                        fan_type = "cpu"
+                        numbers = re.findall(r'\d+', sensor_name)
+                        if numbers:
+                            fan_label = f"cpu_fan_{numbers[0]}"
+                        else:
+                            fan_label = "cpu_fan"
+                    elif "cha" in fan_name_lower or "chassis" in fan_name_lower or "case" in fan_name_lower:
+                        fan_type = "chassis"
+                        numbers = re.findall(r'\d+', sensor_name)
+                        if numbers:
+                            fan_label = f"chassis_fan_{numbers[0]}"
+                        else:
+                            fan_label = "chassis_fan"
+                    else:
+                        fan_type = "other"
+                        # Sanitize fan label for Prometheus (alphanumeric + underscore only)
+                        fan_label = re.sub(r'[^a-zA-Z0-9_]', '_', sensor_name.lower())
+                        fan_label = re.sub(r'_+', '_', fan_label).strip('_')
+                        if not fan_label:
+                            fan_label = "unknown_fan"
+
+                    fan_rpm.labels(fan=fan_label, type=fan_type).set(value)
+
+                # Memory (from motherboard/system)
+                elif sensor_type == "Data":
+                    if "Memory Used" in sensor_name:
+                        memory_used.set(value)
+                    elif "Memory Available" in sensor_name:
+                        memory_available.set(value)
+
+            except Exception as e:
+                logger.debug(f"Error processing sensor {sensor_name}: {e}")
+                continue
+
+    def get_system_info(self) -> Dict:
+        """Get system information"""
+        try:
+            hardware = self.w.Hardware()
+            info = {
+                'cpu': 'Unknown',
+                'gpu': 'Unknown',
+                'motherboard': 'Unknown'
+            }
+
+            for hw in hardware:
+                hw_type = getattr(hw, 'HardwareType', '') or ''
+                hw_name = getattr(hw, 'Name', '') or 'Unknown'
+
+                if not hw_type:  # Skip if no hardware type
+                    continue
+
+                logger.debug(f"Found hardware: Type={hw_type}, Name={hw_name}")
+
+                if "CPU" in hw_type or "Processor" in hw_type:
+                    info['cpu'] = hw_name
+                    logger.info(f"Detected CPU: {hw_name}")
+                elif "Gpu" in hw_type or hw_type == "GpuNvidia" or hw_type == "GpuAmd":
+                    info['gpu'] = hw_name
+                    logger.info(f"Detected GPU: {hw_name}")
+                elif "Motherboard" in hw_type:
+                    info['motherboard'] = hw_name
+                    logger.info(f"Detected Motherboard: {hw_name}")
+
+            return info
+        except Exception as e:
+            logger.error(f"Error getting system info: {e}")
+            return {'cpu': 'Unknown', 'gpu': 'Unknown', 'motherboard': 'Unknown'}
+
+
+def main():
+    parser = argparse.ArgumentParser(description='Rigbeat - Prometheus Exporter')
+    parser.add_argument('--port', type=int, default=9182, help='Port to expose metrics (default: 9182)')
+    parser.add_argument('--interval', type=int, default=2, help='Update interval in seconds (default: 2)')
+    parser.add_argument('--logfile', type=str, help='Log file path (e.g., rigbeat.log)')
+    parser.add_argument('--debug', action='store_true', help='Enable debug logging')
+    args = parser.parse_args()
+
+    # Configure file logging if requested
+    if args.logfile:
+        file_handler = logging.FileHandler(args.logfile)
+        file_handler.setFormatter(logging.Formatter('%(asctime)s - %(name)s - %(levelname)s - %(message)s'))
+        logger.addHandler(file_handler)
+
+    # Set debug level if requested
+    if args.debug:
+        logger.setLevel(logging.DEBUG)
+
+    logger.info(f"Starting Rigbeat Exporter on port {args.port}")
+    logger.info(f"Update interval: {args.interval} seconds")
+
+    # Initialize monitor
+    try:
+        monitor = HardwareMonitor()
+    except Exception as e:
+        logger.error("Failed to initialize hardware monitor. Exiting.")
+        return 1
+
+    # Get and set system info
+    sys_info = monitor.get_system_info()
+    system_info.info(sys_info)
+    logger.info(f"System: CPU={sys_info['cpu']}, GPU={sys_info['gpu']}")
+
+    # Start Prometheus HTTP server
+    start_http_server(args.port)
+    logger.info(f"Metrics available at http://localhost:{args.port}/metrics")
+
+    # Main loop
+    try:
+        while True:
+            monitor.update_metrics()
+            time.sleep(args.interval)
+    except KeyboardInterrupt:
+        logger.info("Shutting down...")
+        return 0
+    except Exception as e:
+        logger.error(f"Unexpected error: {e}")
+        return 1
+
+
+if __name__ == '__main__':
+    exit(main())

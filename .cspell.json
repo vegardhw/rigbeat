@@ -1,0 +1,21 @@
+{
+    "version": "0.2",
+    "language": "en",
+    "ignorePaths": [
+        "**/node_modules/**",
+        "**/vscode-extension/**",
+        "**/.git/**",
+        ".vscode",
+        "**/*.py",
+        "**/*.json"
+    ],
+    "words": [
+        "Alertmanager",
+        "alertmanagers",
+        "bdist",
+        "pylint",
+        "pytest",
+        "rigbeat",
+        "sdist"
+    ]
+}
