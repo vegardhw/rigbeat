@@ -1,5 +1,8 @@
 name: Release
 
+permissions:
+  contents: read
+
 on:
   release:
     types: [published]
@@ -14,6 +17,8 @@ on:
 
 jobs:
   build-release:
+    permissions:
+      contents: write
     runs-on: windows-latest
 
     steps:
@@ -69,7 +74,7 @@ jobs:
       run: |
         cd rigbeat-release
         python -m py_compile hardware_exporter.py
-        python -m py_compile install_service.py  
+        python -m py_compile install_service.py
         python -m py_compile test_fans.py
         python hardware_exporter.py --help
         echo "✓ Release package validated"
@@ -91,6 +96,8 @@ jobs:
         body_path: RELEASE_NOTES.md
 
   update-docs:
+    permissions:
+      contents: write
     needs: build-release
     runs-on: ubuntu-latest
     if: github.event_name == 'release'
