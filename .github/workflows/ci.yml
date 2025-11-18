@@ -45,8 +45,8 @@ jobs:
 
     - name: Test import statements
       run: |
-        python -c "import hardware_exporter; print('✓ hardware_exporter imports successfully')"
-        python -c "import argparse, logging, re, time; print('✓ Standard library imports work')"
+        python -c "import hardware_exporter; print('OK: hardware_exporter imports successfully')"
+        python -c "import argparse, logging, re, time; print('OK: Standard library imports work')"
 
     - name: Test command line arguments
       run: |
@@ -54,10 +54,10 @@ jobs:
 
     - name: Validate configuration files
       run: |
-        if (Test-Path "prometheus_config.txt") { Write-Host "✓ Prometheus config exists" }
-        if (Test-Path "grafana_dashboard.json") { Write-Host "✓ Grafana dashboard exists" }
-        if (Test-Path "FAN_SUPPORT.md") { Write-Host "✓ Fan support docs exist" }
-        if (Test-Path "install_script.bat") { Write-Host "✓ Install script exists" }
+        if (Test-Path "prometheus_config.txt") { Write-Host "OK: Prometheus config exists" }
+        if (Test-Path "grafana_dashboard.json") { Write-Host "OK: Grafana dashboard exists" }
+        if (Test-Path "FAN_SUPPORT.md") { Write-Host "OK: Fan support docs exist" }
+        if (Test-Path "install_script.bat") { Write-Host "OK: Install script exists" }
 
   documentation:
     runs-on: ubuntu-latest
@@ -66,11 +66,11 @@ jobs:
 
     - name: Check documentation files
       run: |
-        [ -f README.md ] && echo "✓ README.md exists" || echo "✗ README.md missing"
-        [ -f FAN_SUPPORT.md ] && echo "✓ FAN_SUPPORT.md exists" || echo "✗ FAN_SUPPORT.md missing"
-        [ -f LICENSE ] && echo "✓ LICENSE exists" || echo "✗ LICENSE missing"
-        [ -f requirements.txt ] && echo "✓ requirements.txt exists" || echo "✗ requirements.txt missing"
+        [ -f README.md ] && echo "OK: README.md exists" || echo "ERROR: README.md missing"
+        [ -f FAN_SUPPORT.md ] && echo "OK: FAN_SUPPORT.md exists" || echo "ERROR: FAN_SUPPORT.md missing"
+        [ -f LICENSE ] && echo "OK: LICENSE exists" || echo "ERROR: LICENSE missing"
+        [ -f requirements.txt ] && echo "OK: requirements.txt exists" || echo "ERROR: requirements.txt missing"
 
     - name: Validate JSON files
       run: |
-        python -m json.tool grafana_dashboard.json > /dev/null && echo "✓ Grafana dashboard JSON is valid" || echo "✗ Invalid JSON"
+        python -m json.tool grafana_dashboard.json > /dev/null && echo "OK: Grafana dashboard JSON is valid" || echo "ERROR: Invalid JSON"
