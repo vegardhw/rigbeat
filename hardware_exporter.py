@@ -8,4 +8,3 @@ Requirements:
     - pip install prometheus-client wmi pywin32
 """
 import time
-import wmi
