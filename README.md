@@ -3,372 +3,127 @@
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 [![Python 3.8+](https://img.shields.io/badge/python-3.8+-blue.svg)](https://www.python.org/downloads/)
 [![Prometheus](https://img.shields.io/badge/Prometheus-compatible-orange.svg)](https://prometheus.io/)
+[![Documentation](https://img.shields.io/badge/docs-VitePress-blue.svg)](https://vegardhw.github.io/rigbeat/)
 
-A lightweight Prometheus exporter for Windows that monitors PC hardware metrics in real-time. Perfect for gaming PCs, workstations, and anyone who wants beautiful Grafana dashboards showing CPU/GPU temperatures, fan speeds, and system loads.
+**Prometheus exporter for Windows hardware monitoring** - Track your gaming PC's temperatures, fan speeds, and performance with beautiful Grafana dashboards.
 
-![Dashboard Preview](https://via.placeholder.com/800x400?text=Dashboard+Preview+Coming+Soon)
+> 🎯 **Perfect for gaming PCs, workstations, and home labs**
 
-## ✨ Features
+<!-- DASHBOARD SCREENSHOT PLACEHOLDER - Add your Grafana dashboard screenshot here -->
+![Dashboard Preview](https://via.placeholder.com/800x400?text=🎮+Gaming+PC+Dashboard+Screenshot+Coming+Soon)
+*📱 Mobile-optimized dashboard showing CPU/GPU temps, fan speeds, and system performance*
 
-- 🌡️ **CPU Temperature** - Per-core temperature monitoring
-- 🎮 **GPU Metrics** - Temperature, load, memory usage, clock speeds (NVIDIA/AMD)
-- 💨 **Smart Fan Detection** - Auto-categorizes GPU, CPU, Chassis, and other fans
-- 📊 **System Load** - CPU/GPU utilization per core
-- ⚡ **Clock Speeds** - Real-time CPU/GPU frequencies
-- 📝 **Enhanced Logging** - File logging and debug modes
-- 🔧 **Fan Testing** - Built-in fan detection diagnostics
-- 🛡️ **Robust Service** - Graceful handling of missing hardware monitoring, demo mode support
-- ☁️ **VM Compatible** - Runs without errors on virtual machines for testing
-- 🔧 **Proper COM Initialization** - Fixed Windows service WMI access issues
-- 🎯 **Low Overhead** - <50MB RAM, minimal CPU usage
-- 📱 **Mobile Friendly** - Optimized for tablets and phones
-- 🔄 **Auto-refresh** - 1-5 second update intervals
-- 📈 **Historical Data** - Track trends, identify thermal issues
+## ✨ Key Features
+
+- 🌡️ **Real-time Temperature Monitoring** - CPU/GPU temperatures per core and sensor
+- 💨 **Smart Fan Detection** - Auto-categorizes GPU, CPU, chassis, and other fans  
+- 📊 **Performance Metrics** - CPU/GPU load, clock speeds, memory usage
+- 📱 **Mobile-Optimized Dashboard** - Perfect for tablets and phones
+- 🛡️ **Robust Windows Service** - Graceful handling with demo mode support
+- ⚡ **Low Overhead** - Under 50MB RAM, minimal performance impact
 
 ## 🚀 Quick Start
 
-### Prerequisites
-
-- Windows 10/11
-- Python 3.8 or higher
-- Administrator rights (for sensor access)
-- Prometheus & Grafana (or use Docker setup below)
-
-### Installation
-
-#### Option 1: Quick Install Script (Recommended)
-
-1. **Download Rigbeat**
-   ```bash
-   # Download the latest release from:
-   # https://github.com/vegardhw/rigbeat/releases
-   # Or clone: git clone https://github.com/vegardhw/rigbeat.git
-   ```
-
-2. **Install LibreHardwareMonitor** (provides sensor access)
-   ```bash
-   # Download from: https://github.com/LibreHardwareMonitor/LibreHardwareMonitor/releases
-   # Extract and run LibreHardwareMonitor.exe as Administrator
-   # Enable: Options → "WMI" (required!)
-   # Enable: Options → "Run On Windows Startup" (optional)
-   ```
-
-3. **Run install script**
-   ```bash
-   # Right-click install_script.bat → "Run as Administrator"
-   # This will:
-   # - Install Python dependencies
-   # - Set up Windows service
-   # - Copy files to C:\ProgramData\Rigbeat\
-   ```
-
-#### Option 2: Manual Installation
-
-1. **Install dependencies**
-   ```bash
-   pip install -r requirements.txt
-   ```
-
-2. **Test fan detection** (recommended)
-   ```bash
-   python test_fans.py
-   ```
-
-3. **Run the exporter**
-   ```bash
-   # Simple run
-   python hardware_exporter.py
-
-   # With debug logging
-   python hardware_exporter.py --debug
-
-   # Save logs to file
-   python hardware_exporter.py --logfile rigbeat.log
-
-   # Custom port and interval
-   python hardware_exporter.py --port 9183 --interval 5
-   ```
-
-4. **Verify it's working**
-   ```bash
-   # Visit in browser
-   http://localhost:9182/metrics
-   
-   # You should see Prometheus metrics like:
-   # rigbeat_cpu_temperature_celsius{sensor="CPU Package"} 45.0
-   # rigbeat_gpu_temperature_celsius{gpu="NVIDIA GeForce RTX 4080"} 52.0
-   # rigbeat_fan_speed_rpm{fan="gpu_fan_1", type="gpu"} 1850.0
-   # rigbeat_fan_speed_rpm{fan="cpu_fan", type="cpu"} 1450.0
-   # rigbeat_fan_speed_rpm{fan="chassis_fan_1", type="chassis"} 1200.0
-   ```
-
-### Install as Windows Service
-
-The install script automatically sets this up, but you can also do it manually:
-
+### 1. **Download & Install**
 ```bash
-# Install service (from the Rigbeat directory)
-cd "C:\ProgramData\Rigbeat"
-python install_service.py install
+# Download latest release from GitHub
+# https://github.com/vegardhw/rigbeat/releases
 
-# Start service
-net start Rigbeat
+# Install LibreHardwareMonitor (required)
+# https://github.com/LibreHardwareMonitor/LibreHardwareMonitor/releases
 
-# Stop service
-net stop Rigbeat
-
-# Remove service
-python install_service.py remove
+# Run install script as Administrator
+# Right-click install_script.bat → "Run as Administrator"
 ```
 
-**Service Features:**
-- ✅ **Robust Startup**: Service starts successfully even without LibreHardwareMonitor
-- 🖥️ **Demo Mode**: Runs on VMs/test systems without hardware monitoring
-- 🔧 **Proper COM Initialization**: Fixed WMI access issues in Windows service context
-- 📝 **Enhanced Logging**: Service logs to `C:\ProgramData\Rigbeat\service.log`
-- 🔄 **Auto-Detection**: Automatically switches to full monitoring when hardware becomes available
-
-## 📊 Grafana Dashboard Setup
-
-### Option 1: Import from Grafana.com
-
-1. Open Grafana → Dashboards → Import
-2. Enter Dashboard ID: `[TBD - will be published]`
-3. Select your Prometheus datasource
-4. Click Import
-
-### Option 2: Import JSON file
-
-1. Copy `grafana-dashboard.json` from this repo
-2. Grafana → Dashboards → Import → Upload JSON file
-3. Select your Prometheus datasource
-
-### Option 3: Manual Setup
-
-Add this to your `prometheus.yml`:
-
-```yaml
-scrape_configs:
-  - job_name: 'rigbeat-hardware'
-    scrape_interval: 2s
-    static_configs:
-      - targets: ['localhost:9182']
-        labels:
-          instance: 'gaming-pc'
-          environment: 'home'
-          service: 'rigbeat'
+### 2. **Verify Installation** 
+Visit **http://localhost:9182/metrics** to see your hardware metrics:
+```prometheus
+rigbeat_cpu_temperature_celsius{sensor="CPU Package"} 45.0
+rigbeat_gpu_temperature_celsius{gpu="nvidia_geforce_rtx_4080"} 52.0
+rigbeat_fan_speed_rpm{fan="gpu_fan_1",type="gpu"} 1850.0
 ```
 
-Restart Prometheus and the metrics will be available in Grafana.
+### 3. **Set Up Dashboard**
+Import the included Grafana dashboard for beautiful visualizations:
 
-## 🐋 Docker Setup (Bonus)
+<!-- GRAFANA DASHBOARD INSTRUCTIONS PLACEHOLDER -->
+*📊 Complete Grafana setup instructions and dashboard gallery in the documentation*
 
-If you don't have Prometheus/Grafana yet, use this Docker Compose setup:
+## 📖 Documentation
 
-```yaml
-version: '3.8'
+**[📚 Full Documentation →](https://vegardhw.github.io/rigbeat/)**
 
-services:
-  prometheus:
-    image: prom/prometheus:latest
-    ports:
-      - "9090:9090"
-    volumes:
-      - ./prometheus.yml:/etc/prometheus/prometheus.yml
-      - prometheus-data:/prometheus
-    command:
-      - '--config.file=/etc/prometheus/prometheus.yml'
-      - '--storage.tsdb.retention.time=30d'
+| Section | Description |
+|---------|-------------|
+| **[🚀 Getting Started](https://vegardhw.github.io/rigbeat/getting-started/installation)** | Installation, requirements, first run |
+| **[📖 User Guide](https://vegardhw.github.io/rigbeat/guide/overview)** | Hardware setup, Grafana, Prometheus |
+| **[🔧 Troubleshooting](https://vegardhw.github.io/rigbeat/troubleshooting/common-issues)** | Common issues and solutions |
+| **[📊 Metrics Reference](https://vegardhw.github.io/rigbeat/reference/metrics)** | Complete API documentation |
 
-  grafana:
-    image: grafana/grafana:latest
-    ports:
-      - "3000:3000"
-    volumes:
-      - grafana-data:/var/lib/grafana
-    environment:
-      - GF_SECURITY_ADMIN_PASSWORD=admin
-      - GF_USERS_ALLOW_SIGN_UP=false
+## 🎯 Why Rigbeat?
 
-volumes:
-  prometheus-data:
-  grafana-data:
+| Feature | Benefit |
+|---------|---------|
+| **🎮 Gaming Focused** | Designed specifically for Windows gaming hardware |
+| **🧠 Smart Detection** | Automatically identifies and categorizes your fans |
+| **📱 Mobile First** | Dashboard works beautifully on your phone/tablet |
+| **🛡️ Production Ready** | Robust service with proper error handling |
+| **☁️ VM Compatible** | Test deployment on virtual machines with demo mode |
+
+## 📊 What You Get
+
+### Smart Hardware Detection
+```prometheus
+# Intelligent fan categorization
+rigbeat_fan_speed_rpm{fan="gpu_fan_1",type="gpu"} 1850.0      # Graphics card
+rigbeat_fan_speed_rpm{fan="cpu_fan",type="cpu"} 1450.0        # CPU cooler  
+rigbeat_fan_speed_rpm{fan="chassis_fan_1",type="chassis"} 1200.0  # Case fans
+
+# Comprehensive temperature monitoring
+rigbeat_cpu_temperature_celsius{sensor="CPU Package"} 45.0
+rigbeat_cpu_temperature_celsius{sensor="Core Complex 1"} 42.0
+rigbeat_gpu_temperature_celsius{gpu="nvidia_geforce_rtx_4080"} 52.0
+
+# Performance metrics
+rigbeat_cpu_load_percent{core="total"} 45.5
+rigbeat_gpu_load_percent{gpu="nvidia_geforce_rtx_4080",type="core"} 85.0
 ```
 
-Start with: `docker-compose up -d`
+### Mobile-Optimized Dashboard
+<!-- DASHBOARD FEATURES SCREENSHOT PLACEHOLDER -->
+![Dashboard Features](https://via.placeholder.com/600x300?text=📊+Temperature+Gauges+%7C+Fan+RPM+%7C+Performance+Charts)
+*🎨 Beautiful temperature gauges, fan monitoring, and performance tracking*
 
-Access Grafana at http://localhost:3000 (admin/admin)
+## 💡 Perfect For
 
-## 📝 Available Metrics
+- **🎮 Gaming PCs** - Monitor thermals during intense sessions
+- **💼 Workstations** - Track performance during heavy workloads  
+- **🏠 Home Labs** - Keep tabs on 24/7 systems
+- **🔧 System Builders** - Validate cooling performance
 
-| Metric | Description | Labels |
-|--------|-------------|--------|
-| `rigbeat_cpu_temperature_celsius` | CPU temperature | `sensor` |
-| `rigbeat_cpu_load_percent` | CPU load per core | `core` |
-| `rigbeat_cpu_clock_mhz` | CPU clock speed | `core` |
-| `rigbeat_gpu_temperature_celsius` | GPU temperature | `gpu` |
-| `rigbeat_gpu_load_percent` | GPU load | `gpu`, `type` |
-| `rigbeat_gpu_memory_used_mb` | GPU memory usage | `gpu` |
-| `rigbeat_gpu_clock_mhz` | GPU clock speed | `gpu`, `type` |
-| `rigbeat_fan_speed_rpm` | Fan speed with smart categorization | `fan`, `type` |
-| `rigbeat_memory_used_gb` | System RAM used | - |
-| `rigbeat_memory_available_gb` | System RAM available | - |
-| `rigbeat_system_info` | System information | `cpu`, `gpu`, `motherboard` |
+## 🛠️ Development & Contributing
 
-### Fan Types
-- `type="gpu"`: Graphics card fans (e.g., `gpu_fan_1`, `gpu_fan_2`)
-- `type="cpu"`: CPU/cooler fans (e.g., `cpu_fan`, `cpu_fan_1`)
-- `type="chassis"`: Case fans (e.g., `chassis_fan_1`, `chassis_fan_2`)
-- `type="other"`: Pumps, custom fans (e.g., `pump_fan`, `fan_2`)
+Rigbeat is open source and welcomes contributions!
 
-## 🔧 Configuration
+- **[🔧 Development Setup](https://vegardhw.github.io/rigbeat/development/building)** - Build from source
+- **[🤝 Contributing Guide](https://vegardhw.github.io/rigbeat/development/contributing)** - Help improve Rigbeat
+- **[🏗️ Architecture](https://vegardhw.github.io/rigbeat/development/architecture)** - Technical overview
 
-### Command Line Options
+## 📜 License & Support
 
-```bash
-python hardware_exporter.py --help
-
-Options:
-  --port PORT           Port to expose metrics (default: 9182)
-  --interval INTERVAL   Update interval in seconds (default: 2)
-  --logfile PATH        Save logs to file (e.g., --logfile rigbeat.log)
-  --debug               Enable debug logging
-```
-
-### Testing and Diagnostics
-
-```bash
-# Test fan detection (shows all detected fans)
-python test_fans.py
-
-# Run with debug output
-python hardware_exporter.py --debug
-
-# Save detailed logs for troubleshooting
-python hardware_exporter.py --debug --logfile debug.log
-```
-
-## 🎨 Dashboard Features
-
-- **Temperature Gauges**: Color-coded (green/yellow/red) CPU/GPU temps
-- **Time Series Graphs**: Historical temp data for last 15m/1h/24h
-- **Fan Speed Monitoring**: Real-time RPM for all fans
-- **Load Indicators**: CPU/GPU utilization percentages
-- **Memory Stats**: RAM usage tracking
-- **Mobile Optimized**: Responsive design for phones/tablets
-
-## 🤔 Troubleshooting
-
-### "Failed to connect to LibreHardwareMonitor WMI" or "Demo Mode"
-
-**When LibreHardwareMonitor is not available:**
-- Service will start in **Demo Mode** (no hardware metrics collected)
-- Prometheus endpoint still works at `http://localhost:9182/metrics`
-- System info shows demo values ("Demo CPU", "Demo GPU")
-- Perfect for testing service deployment on VMs
-
-**To enable full hardware monitoring:**
-- Install and run LibreHardwareMonitor as Administrator
-- Check: Options → Enable WMI is checked
-- Restart LibreHardwareMonitor after enabling WMI
-- Restart Rigbeat service to detect hardware
-
-### No sensors/fans showing up
-
-- Run `python test_fans.py` to see what's detected
-- Check LibreHardwareMonitor shows the sensors
-- Some motherboards don't expose all sensors via WMI
-- Update motherboard BIOS/chipset drivers
-
-### Fans not categorized correctly
-
-- Run `python test_fans.py` to see actual sensor names
-- Fans not matching GPU/CPU/Chassis patterns are labeled as "other" type
-- This is normal for some motherboards (e.g., "Fan #1", "Fan #2")
-- Check `FAN_SUPPORT.md` for customization options
-
-### High CPU usage
-
-- Increase `--interval` to 5 or 10 seconds
-- Some hardware has slow sensor access
-- Use `--debug` to identify slow sensors
-
-### Windows Service Issues
-
-**"OLE error 0x8004100e" or COM errors:**
-- Fixed in latest version with proper COM initialization
-- Service automatically handles WMI access in Windows service context
-- If still occurring, reinstall service with latest version
-
-**Service won't start:**
-- Check Windows Event Viewer → Application logs
-- Verify service logs: `C:\ProgramData\Rigbeat\service.log`
-- Run `python install_service.py debug` for interactive testing
-- Ensure Python and dependencies are accessible to SYSTEM account
-
-### Service logs
-
-- Windows service logs: `C:\ProgramData\Rigbeat\service.log`
-- Manual run logs: Use `--logfile` option
-- Debug output: Use `--debug` flag
-- Windows Event Viewer: Application → Rigbeat Service events
-
-### Grafana shows "No data"
-
-- Check Prometheus is scraping: http://localhost:9090/targets
-- Verify metrics endpoint works: http://localhost:9182/metrics
-- Check Prometheus datasource in Grafana settings
-- Ensure job name matches: `rigbeat-hardware`
-
-## 🛠️ Development
-
-### Building from source
-
-```bash
-# Clone repository
-git clone https://github.com/vegardhw/rigbeat.git
-cd rigbeat
-
-# Install dependencies
-pip install -r requirements.txt
-
-# Run in development mode
-python hardware_exporter.py --debug
-```
-
-### Running tests
-
-```bash
-pytest tests/
-```
-
-### Contributing
-
-Pull requests welcome! Please:
-- Follow PEP 8 style guide
-- Add tests for new features
-- Update documentation
-
-## 📜 License
-
-MIT License - see [LICENSE](LICENSE) file
+- **License**: MIT - see [LICENSE](LICENSE) file
+- **Issues**: [Report bugs or request features](https://github.com/vegardhw/rigbeat/issues)
+- **Discussions**: [Community chat and questions](https://github.com/vegardhw/rigbeat/discussions)
 
 ## 🙏 Acknowledgments
 
-- [LibreHardwareMonitor](https://github.com/LibreHardwareMonitor/LibreHardwareMonitor) - Hardware sensor access
-- [Prometheus](https://prometheus.io/) - Metrics collection
-- [Grafana](https://grafana.com/) - Dashboard visualization
-
-## ⭐ Star History
-
-If you find this useful, consider giving it a star! It helps others discover the project.
-
-## 📞 Support
-
-- 🐛 [Report bugs](https://github.com/vegardhw/rigbeat/issues)
-- 💡 [Request features](https://github.com/vegardhw/rigbeat/issues)
-- 💬 [Discussions](https://github.com/vegardhw/rigbeat/discussions)
+- **[LibreHardwareMonitor](https://github.com/LibreHardwareMonitor/LibreHardwareMonitor)** - Hardware sensor access
+- **[Prometheus](https://prometheus.io/)** - Metrics collection and alerting
+- **[Grafana](https://grafana.com/)** - Beautiful dashboard visualization
 
 ---
 
-**Made with ❤️ for the PC gaming community**
+**⭐ Star this project if you find it useful!**
+
+Made with ❤️ for the PC gaming and monitoring community

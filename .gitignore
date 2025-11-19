@@ -39,6 +39,8 @@ env/
 .coverage
 htmlcov/
 .tox/
+node_modules/
+docs/.vitepress/cache
 
 # Logs
 *.log
