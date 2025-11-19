@@ -1,8 +1,8 @@
 name: Deploy VitePress Documentation
 
 on:
-  push:
-    branches: [main]
+  pull_request:
+    branches: [ main]
     paths: ['docs/**']
   workflow_dispatch:
 
