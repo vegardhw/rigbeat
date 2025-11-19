@@ -27,6 +27,7 @@ import os
 from hardware_exporter import HardwareMonitor, system_info
 from prometheus_client import start_http_server
 import time
+import pythoncom
 
 # Ensure log directory exists
 log_dir = 'C:\\ProgramData\\Rigbeat'
@@ -98,6 +99,10 @@ class RigbeatService(win32serviceutil.ServiceFramework):
         monitor = None
 
         try:
+            # Initialize COM for WMI access in service context
+            pythoncom.CoInitialize()
+            logger.info("COM initialized for WMI access")
+
             logger.info(f"Starting Rigbeat Service on port {port}")
             logger.info(f"Update interval: {interval} seconds")
 
@@ -138,6 +143,12 @@ class RigbeatService(win32serviceutil.ServiceFramework):
             servicemanager.LogErrorMsg(f"Service error: {e}")
         finally:
             logger.info("Service stopped")
+            # Cleanup COM
+            try:
+                pythoncom.CoUninitialize()
+                logger.info("COM uninitialized")
+            except Exception:
+                pass
             # Ensure we report stopped status
             try:
                 self.ReportServiceStatus(win32service.SERVICE_STOPPED)
