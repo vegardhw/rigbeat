@@ -94,7 +94,18 @@ Run the test script to see what fans are detected:
 python test_fans.py
 ```
 
-### Expected Output
+### Demo Mode vs Hardware Mode
+
+**Hardware Mode** (LibreHardwareMonitor running):
+Shows actual detected fans with real RPM values
+
+**Demo Mode** (LibreHardwareMonitor not available):
+- Service runs successfully for testing deployment
+- No fan metrics are collected (by design)
+- System info shows demo values
+- Useful for CI/CD testing and VM deployment validation
+
+### Expected Output (Hardware Mode)
 
 ```
 ================================================================================
@@ -162,17 +173,20 @@ elif sensor_type == "Fan":
 
 ## Common Issues
 
-### Issue: No Fans Detected
+### Issue: No Fans Detected or "Demo Mode"
 
 **Causes:**
-1. LibreHardwareMonitor not running
+1. LibreHardwareMonitor not running (service runs in demo mode)
 2. Running without Administrator privileges
 3. Motherboard doesn't expose fan sensors via WMI
+4. WMI not enabled in LibreHardwareMonitor
 
 **Solutions:**
-1. Start LibreHardwareMonitor as Administrator
-2. Check LibreHardwareMonitor GUI - if it shows fans, they should be detected
-3. Enable "WMI" in LibreHardwareMonitor Options
+1. **For Demo Mode Testing**: This is normal - service is working correctly
+2. **For Hardware Monitoring**: Start LibreHardwareMonitor as Administrator
+3. **Enable WMI**: Check LibreHardwareMonitor Options → "WMI" is enabled
+4. **Verify Detection**: If LibreHardwareMonitor GUI shows fans, they should be detected
+5. **Restart Service**: After starting LibreHardwareMonitor, restart Rigbeat service
 
 ### Issue: Fan Shows 0 RPM
 
@@ -185,6 +199,36 @@ elif sensor_type == "Fan":
 1. Check physical connection
 2. Enable fan header in BIOS
 3. Set minimum fan speed in BIOS
+
+### Issue: Windows Service COM Errors
+
+**Symptoms:** "OLE error 0x8004100e", service fails to start
+
+**Cause:** Windows service context requires proper COM initialization for WMI access
+
+**Solution:** 
+- **Fixed in v1.0.1+**: Service now properly initializes COM
+- Update to latest version and reinstall service:
+  ```bash
+  python install_service.py remove
+  python install_service.py install
+  net start Rigbeat
+  ```
+- Check service logs: `C:\ProgramData\Rigbeat\service.log`
+
+### Issue: Service Starts but No Metrics
+
+**Symptoms:** Service running, endpoint responds, but no fan metrics
+
+**Diagnosis:**
+1. Check if running in demo mode (service logs will indicate this)
+2. Verify LibreHardwareMonitor is running with WMI enabled
+3. Test fan detection: `python test_fans.py`
+4. Check service can access LibreHardwareMonitor WMI namespace
+
+**Solution:**
+- If demo mode: Install and run LibreHardwareMonitor, then restart service
+- If hardware mode but no fans: Check motherboard BIOS settings for fan monitoring
 
 ### Issue: Wrong Fan Label
 
@@ -207,11 +251,14 @@ The system automatically extracts numbers from sensor names using `re.findall(r'
 
 ## Best Practices
 
-1. **Always test first**: Run `test_fans.py` before deploying
-2. **Use descriptive labels**: Make them easy to understand in Grafana
-3. **Document custom patterns**: Add comments if you modify detection logic
-4. **Monitor 0 RPM fans**: Set up alerts for stopped fans
-5. **Group by type**: Use the `type` label for organizing dashboards
+1. **Test Deployment First**: Use demo mode to verify service installation before requiring hardware
+2. **Always test detection**: Run `test_fans.py` before deploying to production hardware
+3. **Use descriptive labels**: Make them easy to understand in Grafana
+4. **Document custom patterns**: Add comments if you modify detection logic
+5. **Monitor service health**: Set up alerts for demo mode vs hardware mode transitions
+6. **Monitor 0 RPM fans**: Set up alerts for stopped fans (hardware mode only)
+7. **Group by type**: Use the `type` label for organizing dashboards
+8. **Service logs**: Monitor `C:\ProgramData\Rigbeat\service.log` for mode changes
 
 ## Grafana Dashboard Tips
 

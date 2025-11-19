@@ -47,19 +47,48 @@ class HardwareMonitor:
     def __init__(self):
         try:
             self.w = wmi.WMI(namespace="root\\LibreHardwareMonitor")
+            self.connected = True
             logger.info("Successfully connected to LibreHardwareMonitor WMI")
         except Exception as e:
-            logger.error(f"Failed to connect to LibreHardwareMonitor WMI: {e}")
-            logger.error("Make sure LibreHardwareMonitor is running with WMI enabled!")
-            raise
+            logger.warning(f"Failed to connect to LibreHardwareMonitor WMI: {e}")
+            logger.warning("LibreHardwareMonitor may not be running or WMI may not be enabled")
+            logger.info("Monitor will run in demo mode - no metrics will be collected")
+            self.connected = False
+            self.w = None
 
     def get_sensors(self) -> List:
         """Get all hardware sensors"""
+        if not self.connected or not self.w:
+            return []
         try:
             return self.w.Sensor()
         except Exception as e:
             logger.error(f"Error reading sensors: {e}")
             return []
+
+    def _is_cpu_sensor(self, parent: str) -> bool:
+        """Check if sensor belongs to CPU (Intel, AMD, or other)"""
+        if not parent:
+            return False
+
+        parent_lower = parent.lower()
+
+        # Comprehensive CPU detection patterns
+        cpu_patterns = [
+            "/cpu",          # Generic CPU path
+            "/amdcpu",       # AMD-specific path
+            "/intelcpu",     # Intel-specific path (if it exists)
+            "cpu",           # Generic CPU in path
+            "processor",     # Alternative CPU naming
+            "ryzen",         # AMD Ryzen series
+            "threadripper",  # AMD Threadripper
+            "epyc",          # AMD EPYC
+            "intel",         # Intel processors
+            "xeon",          # Intel Xeon
+            "core",          # Intel Core series (but not "core" alone to avoid confusion with cores)
+        ]
+
+        return any(pattern in parent_lower for pattern in cpu_patterns)
 
     def update_metrics(self):
         """Update all Prometheus metrics"""
@@ -81,38 +110,54 @@ class HardwareMonitor:
                     continue
 
                 # CPU Temperature
-                if sensor_type == "Temperature" and "CPU" in parent:
-                    cpu_temp.labels(sensor=sensor_name).set(value)
+                if sensor_type == "Temperature" and self._is_cpu_sensor(parent):
+                    # Clean up temperature sensor names for better display
+                    if "ccd" in sensor_name.lower():
+                        # Convert "CCD1 (Tdie)" or "CCD1" to "Core Complex 1"
+                        sensor_label = sensor_name.replace("CCD", "Core Complex ").replace(" (Tdie)", "")
+                    elif "tctl" in sensor_name.lower():
+                        sensor_label = "CPU Package"
+                    elif "die" in sensor_name.lower():
+                        sensor_label = "CPU Die"
+                    else:
+                        sensor_label = sensor_name
+                    cpu_temp.labels(sensor=sensor_label).set(value)
 
                 # CPU Load
-                elif sensor_type == "Load" and "CPU" in parent:
-                    # Clean up core names (e.g., "CPU Core #1" -> "core1")
-                    core_label = sensor_name.lower().replace("cpu ", "").replace("#", "").replace(" ", "")
+                elif sensor_type == "Load" and self._is_cpu_sensor(parent):
+                    # Clean up core names (e.g., "CPU Core #1" -> "core1", "CPU Total" -> "total")
+                    if "total" in sensor_name.lower():
+                        core_label = "total"
+                    else:
+                        core_label = sensor_name.lower().replace("cpu ", "").replace("#", "").replace(" ", "")
                     cpu_load.labels(core=core_label).set(value)
 
                 # CPU Clock
-                elif sensor_type == "Clock" and "CPU" in parent:
-                    core_label = sensor_name.lower().replace("cpu ", "").replace("#", "").replace(" ", "")
+                elif sensor_type == "Clock" and self._is_cpu_sensor(parent):
+                    if "total" in sensor_name.lower():
+                        core_label = "total"
+                    else:
+                        core_label = sensor_name.lower().replace("cpu ", "").replace("#", "").replace(" ", "")
                     cpu_clock.labels(core=core_label).set(value)
 
                 # GPU Temperature
-                elif sensor_type == "Temperature" and any(x in parent for x in ["GPU", "NVIDIA", "AMD", "Radeon"]):
+                elif sensor_type == "Temperature" and any(x in parent.lower() for x in ["/gpu", "nvidia", "amd", "radeon"]):
                     gpu_name = parent.split("/")[-1] if "/" in parent else "gpu0"
                     gpu_temp.labels(gpu=gpu_name).set(value)
 
                 # GPU Load
-                elif sensor_type == "Load" and any(x in parent for x in ["GPU", "NVIDIA", "AMD", "Radeon"]):
+                elif sensor_type == "Load" and any(x in parent.lower() for x in ["/gpu", "nvidia", "amd", "radeon"]):
                     gpu_name = parent.split("/")[-1] if "/" in parent else "gpu0"
                     load_type = "core" if "Core" in sensor_name else "memory" if "Memory" in sensor_name else "other"
                     gpu_load.labels(gpu=gpu_name, type=load_type).set(value)
 
                 # GPU Memory
-                elif sensor_type == "SmallData" and "Memory Used" in sensor_name:
+                elif sensor_type == "SmallData" and "Memory Used" in sensor_name and any(x in parent.lower() for x in ["/gpu", "nvidia", "amd", "radeon"]):
                     gpu_name = parent.split("/")[-1] if "/" in parent else "gpu0"
                     gpu_memory.labels(gpu=gpu_name).set(value)
 
                 # GPU Clock
-                elif sensor_type == "Clock" and any(x in parent for x in ["GPU", "NVIDIA", "AMD", "Radeon"]):
+                elif sensor_type == "Clock" and any(x in parent.lower() for x in ["/gpu", "nvidia", "amd", "radeon"]):
                     gpu_name = parent.split("/")[-1] if "/" in parent else "gpu0"
                     clock_type = "core" if "Core" in sensor_name else "memory" if "Memory" in sensor_name else "other"
                     gpu_clock.labels(gpu=gpu_name, type=clock_type).set(value)
@@ -157,9 +202,19 @@ class HardwareMonitor:
                 # Memory (from motherboard/system)
                 elif sensor_type == "Data":
                     if "Memory Used" in sensor_name:
-                        memory_used.set(value)
+                        # Convert to GB if the value is in bytes/MB
+                        if value > 1000:  # Likely in MB or bytes
+                            memory_value = value / 1024 if value > 10000 else value  # MB to GB conversion if needed
+                        else:
+                            memory_value = value  # Already in GB
+                        memory_used.set(memory_value)
                     elif "Memory Available" in sensor_name:
-                        memory_available.set(value)
+                        # Convert to GB if the value is in bytes/MB
+                        if value > 1000:  # Likely in MB or bytes
+                            memory_value = value / 1024 if value > 10000 else value  # MB to GB conversion if needed
+                        else:
+                            memory_value = value  # Already in GB
+                        memory_available.set(memory_value)
 
             except Exception as e:
                 logger.debug(f"Error processing sensor {sensor_name}: {e}")
@@ -167,6 +222,9 @@ class HardwareMonitor:
 
     def get_system_info(self) -> Dict:
         """Get system information"""
+        if not self.connected or not self.w:
+            return {'cpu': 'Demo CPU', 'gpu': 'Demo GPU', 'motherboard': 'Demo Board'}
+
         try:
             hardware = self.w.Hardware()
             info = {
@@ -184,13 +242,13 @@ class HardwareMonitor:
 
                 logger.debug(f"Found hardware: Type={hw_type}, Name={hw_name}")
 
-                if "CPU" in hw_type or "Processor" in hw_type:
+                if hw_type.lower() in ["cpu", "processor"] or "cpu" in hw_type.lower() or "processor" in hw_type.lower():
                     info['cpu'] = hw_name
                     logger.info(f"Detected CPU: {hw_name}")
-                elif "Gpu" in hw_type or hw_type == "GpuNvidia" or hw_type == "GpuAmd":
+                elif "gpu" in hw_type.lower() or "nvidia" in hw_type.lower() or "amd" in hw_type.lower():
                     info['gpu'] = hw_name
                     logger.info(f"Detected GPU: {hw_name}")
-                elif "Motherboard" in hw_type:
+                elif "motherboard" in hw_type.lower():
                     info['motherboard'] = hw_name
                     logger.info(f"Detected Motherboard: {hw_name}")
 

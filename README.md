@@ -17,6 +17,9 @@ A lightweight Prometheus exporter for Windows that monitors PC hardware metrics 
 - ⚡ **Clock Speeds** - Real-time CPU/GPU frequencies
 - 📝 **Enhanced Logging** - File logging and debug modes
 - 🔧 **Fan Testing** - Built-in fan detection diagnostics
+- 🛡️ **Robust Service** - Graceful handling of missing hardware monitoring, demo mode support
+- ☁️ **VM Compatible** - Runs without errors on virtual machines for testing
+- 🔧 **Proper COM Initialization** - Fixed Windows service WMI access issues
 - 🎯 **Low Overhead** - <50MB RAM, minimal CPU usage
 - 📱 **Mobile Friendly** - Optimized for tablets and phones
 - 🔄 **Auto-refresh** - 1-5 second update intervals
@@ -117,6 +120,13 @@ net stop Rigbeat
 # Remove service
 python install_service.py remove
 ```
+
+**Service Features:**
+- ✅ **Robust Startup**: Service starts successfully even without LibreHardwareMonitor
+- 🖥️ **Demo Mode**: Runs on VMs/test systems without hardware monitoring
+- 🔧 **Proper COM Initialization**: Fixed WMI access issues in Windows service context
+- 📝 **Enhanced Logging**: Service logs to `C:\ProgramData\Rigbeat\service.log`
+- 🔄 **Auto-Detection**: Automatically switches to full monitoring when hardware becomes available
 
 ## 📊 Grafana Dashboard Setup
 
@@ -249,12 +259,19 @@ python hardware_exporter.py --debug --logfile debug.log
 
 ## 🤔 Troubleshooting
 
-### "Failed to connect to LibreHardwareMonitor WMI"
+### "Failed to connect to LibreHardwareMonitor WMI" or "Demo Mode"
 
-- Make sure LibreHardwareMonitor is running
-- Run LibreHardwareMonitor as Administrator
+**When LibreHardwareMonitor is not available:**
+- Service will start in **Demo Mode** (no hardware metrics collected)
+- Prometheus endpoint still works at `http://localhost:9182/metrics`
+- System info shows demo values ("Demo CPU", "Demo GPU")
+- Perfect for testing service deployment on VMs
+
+**To enable full hardware monitoring:**
+- Install and run LibreHardwareMonitor as Administrator
 - Check: Options → Enable WMI is checked
 - Restart LibreHardwareMonitor after enabling WMI
+- Restart Rigbeat service to detect hardware
 
 ### No sensors/fans showing up
 
@@ -276,11 +293,25 @@ python hardware_exporter.py --debug --logfile debug.log
 - Some hardware has slow sensor access
 - Use `--debug` to identify slow sensors
 
+### Windows Service Issues
+
+**"OLE error 0x8004100e" or COM errors:**
+- Fixed in latest version with proper COM initialization
+- Service automatically handles WMI access in Windows service context
+- If still occurring, reinstall service with latest version
+
+**Service won't start:**
+- Check Windows Event Viewer → Application logs
+- Verify service logs: `C:\ProgramData\Rigbeat\service.log`
+- Run `python install_service.py debug` for interactive testing
+- Ensure Python and dependencies are accessible to SYSTEM account
+
 ### Service logs
 
 - Windows service logs: `C:\ProgramData\Rigbeat\service.log`
 - Manual run logs: Use `--logfile` option
 - Debug output: Use `--debug` flag
+- Windows Event Viewer: Application → Rigbeat Service events
 
 ### Grafana shows "No data"
 
