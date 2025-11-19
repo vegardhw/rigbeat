@@ -49,7 +49,7 @@ jobs:
         copy LICENSE rigbeat-release\
         copy FAN_SUPPORT.md rigbeat-release\
         copy install_script.bat rigbeat-release\
-        copy prometheus_config.txt rigbeat-release\
+        copy prometheus_config.yml rigbeat-release\
         copy grafana_dashboard.json rigbeat-release\
         copy RELEASE_NOTES.md rigbeat-release\
 
@@ -90,7 +90,7 @@ jobs:
         files: |
           rigbeat-${{ github.ref_name }}.zip
           grafana_dashboard.json
-          prometheus_config.txt
+          prometheus_config.yml
           FAN_SUPPORT.md
         generate_release_notes: false
         body_path: RELEASE_NOTES.md
