@@ -66,6 +66,30 @@ class HardwareMonitor:
             logger.error(f"Error reading sensors: {e}")
             return []
 
+    def _is_cpu_sensor(self, parent: str) -> bool:
+        """Check if sensor belongs to CPU (Intel, AMD, or other)"""
+        if not parent:
+            return False
+
+        parent_lower = parent.lower()
+
+        # Comprehensive CPU detection patterns
+        cpu_patterns = [
+            "/cpu",          # Generic CPU path
+            "/amdcpu",       # AMD-specific path
+            "/intelcpu",     # Intel-specific path (if it exists)
+            "cpu",           # Generic CPU in path
+            "processor",     # Alternative CPU naming
+            "ryzen",         # AMD Ryzen series
+            "threadripper",  # AMD Threadripper
+            "epyc",          # AMD EPYC
+            "intel",         # Intel processors
+            "xeon",          # Intel Xeon
+            "core",          # Intel Core series (but not "core" alone to avoid confusion with cores)
+        ]
+
+        return any(pattern in parent_lower for pattern in cpu_patterns)
+
     def update_metrics(self):
         """Update all Prometheus metrics"""
         sensors = self.get_sensors()
@@ -86,7 +110,7 @@ class HardwareMonitor:
                     continue
 
                 # CPU Temperature
-                if sensor_type == "Temperature" and ("/cpu" in parent.lower() or "/amdcpu" in parent.lower() or "cpu" in parent.lower()):
+                if sensor_type == "Temperature" and self._is_cpu_sensor(parent):
                     # Clean up temperature sensor names for better display
                     if "ccd" in sensor_name.lower():
                         # Convert "CCD1 (Tdie)" or "CCD1" to "Core Complex 1"
@@ -100,7 +124,7 @@ class HardwareMonitor:
                     cpu_temp.labels(sensor=sensor_label).set(value)
 
                 # CPU Load
-                elif sensor_type == "Load" and ("/cpu" in parent.lower() or "/amdcpu" in parent.lower() or "cpu" in parent.lower()):
+                elif sensor_type == "Load" and self._is_cpu_sensor(parent):
                     # Clean up core names (e.g., "CPU Core #1" -> "core1", "CPU Total" -> "total")
                     if "total" in sensor_name.lower():
                         core_label = "total"
@@ -109,7 +133,7 @@ class HardwareMonitor:
                     cpu_load.labels(core=core_label).set(value)
 
                 # CPU Clock
-                elif sensor_type == "Clock" and ("/cpu" in parent.lower() or "/amdcpu" in parent.lower() or "cpu" in parent.lower()):
+                elif sensor_type == "Clock" and self._is_cpu_sensor(parent):
                     if "total" in sensor_name.lower():
                         core_label = "total"
                     else:
@@ -200,7 +224,7 @@ class HardwareMonitor:
         """Get system information"""
         if not self.connected or not self.w:
             return {'cpu': 'Demo CPU', 'gpu': 'Demo GPU', 'motherboard': 'Demo Board'}
-            
+
         try:
             hardware = self.w.Hardware()
             info = {

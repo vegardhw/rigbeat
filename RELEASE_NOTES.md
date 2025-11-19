@@ -1,3 +1,100 @@
+# Release v1.0.1 - "Robustness & Reliability Update"
+
+## 🔧 Bug Fixes & Improvements
+
+### ⚙️ Service Reliability
+- **Fixed Windows Service COM Initialization**: Resolved "OLE error 0x8004100e" by adding proper `pythoncom.CoInitialize()` calls
+- **Graceful Hardware Monitor Handling**: Service no longer crashes when LibreHardwareMonitor is unavailable
+- **Demo Mode**: Service runs successfully on VMs and test systems without hardware monitoring
+- **Enhanced Error Logging**: Better error messages and troubleshooting information in service logs
+
+### 🔍 Testing & Development
+- **VM Compatibility**: Can now test service deployment on virtual machines without errors
+- **Improved Error Handling**: Hardware detection failures are logged as warnings instead of fatal errors
+- **Better Service Lifecycle**: Proper COM cleanup and status reporting throughout service lifecycle
+- **Enhanced Debugging**: Service logs show clear distinction between demo mode and hardware monitoring mode
+
+### 📝 Documentation
+- **Updated README**: Added troubleshooting section for Windows service issues
+- **Enhanced Installation Guide**: Added information about demo mode and VM testing
+- **Service Management**: Updated service installation and management instructions
+
+## 🎆 What's New
+
+### Demo Mode Features
+- Service starts successfully without LibreHardwareMonitor
+- Prometheus endpoint remains functional at `http://localhost:9182/metrics`
+- Shows demo system information ("Demo CPU", "Demo GPU", "Demo Board")
+- Automatic detection when real hardware monitoring becomes available
+- Perfect for CI/CD testing and service deployment validation
+
+### Enhanced Reliability
+- **Zero-downtime testing**: Test service deployment without requiring actual hardware
+- **Better error recovery**: Service handles hardware disconnect/reconnect gracefully
+- **Improved diagnostics**: Clear logs indicate whether running in demo or hardware mode
+- **Service robustness**: Handles COM initialization failures and WMI connection issues
+
+## 🔄 Upgrade Instructions
+
+### From v1.0.0
+
+```bash
+# Stop the service
+net stop Rigbeat
+
+# Remove old service
+python install_service.py remove
+
+# Update files (download new release)
+# Copy new files to C:\ProgramData\Rigbeat\
+
+# Install updated service
+python install_service.py install
+
+# Start service
+net start Rigbeat
+
+# Verify service status
+net query Rigbeat
+
+# Check logs for demo/hardware mode
+type "C:\ProgramData\Rigbeat\service.log"
+```
+
+## ⚙️ Technical Details
+
+### Fixed Issues
+- **COM Error 0x8004100e**: Added `pythoncom.CoInitialize()` before WMI operations
+- **Service Crash on Missing LHM**: Hardware monitor failures now handled gracefully
+- **Duplicate Prometheus Metrics**: Resolved registry collision between service and exporter
+- **WMI Connection in Service Context**: Proper initialization for Windows service environment
+
+### Code Improvements
+- Added `self.connected` flag to track hardware monitor state
+- Improved error handling in `get_sensors()` and `get_system_info()` methods
+- Enhanced service logging with mode detection (demo vs hardware)
+- Better separation of concerns between hardware access and service lifecycle
+
+## 📊 Metrics in Demo Mode
+
+When running in demo mode, the service exposes:
+- `rigbeat_system_info{cpu="Demo CPU", gpu="Demo GPU", motherboard="Demo Board"}`
+- Prometheus endpoint remains functional for testing scrape configuration
+- No sensor metrics are collected (expected behavior)
+- Service health can be monitored via Prometheus
+
+## ✅ Validation
+
+To test the improvements:
+
+1. **VM Testing**: Install on a VM without LibreHardwareMonitor
+2. **Service Status**: Verify service starts without errors
+3. **Demo Mode**: Check logs show "Demo mode" messages
+4. **Metrics Endpoint**: Confirm `http://localhost:9182/metrics` responds
+5. **Hardware Mode**: Install LibreHardwareMonitor to switch to full monitoring
+
+---
+
 # Release v1.0.0 - "First Stable Release"
 
 ## 🎉 What's New
@@ -43,7 +140,7 @@
 
 ```bash
 # Clone or download the repository
-git clone https://github.com/yourusername/rigbeat.git
+git clone https://github.com/vegardhw/rigbeat.git
 cd rigbeat
 
 # Install dependencies
@@ -118,9 +215,11 @@ python test_fans.py
 
 - Some motherboards may not expose all sensors via WMI (this is hardware-dependent)
 - Fans that don't match GPU/CPU/Chassis patterns are categorized as "other" type (this is normal)
-- LibreHardwareMonitor must be running with WMI enabled before starting Rigbeat
+- LibreHardwareMonitor must be running with WMI enabled for full hardware monitoring (demo mode available without it)
 - Service installation requires Administrator rights
 - Prometheus-client and WMI dependencies are Windows-specific
+- Demo mode only provides basic system info - no actual sensor metrics (by design)
+- Service switches to demo mode if LibreHardwareMonitor stops while service is running
 
 ## 🙏 Contributors
 
