@@ -106,9 +106,13 @@ rigbeat_gpu_load_percent{gpu="nvidia_geforce_rtx_4080",type="core"} 85.0
 
 Rigbeat is open source and welcomes contributions!
 
-- **[🔧 Development Setup](https://vegardhw.github.io/rigbeat/development/building)** - Build from source
-- **[🤝 Contributing Guide](https://vegardhw.github.io/rigbeat/development/contributing)** - Help improve Rigbeat
-- **[🏗️ Architecture](https://vegardhw.github.io/rigbeat/development/architecture)** - Technical overview
+- **[🔧 Development Setup](https://your-username.github.io/rigbeat/development/building)** - Build from source
+- **[🤝 Contributing Guide](https://your-username.github.io/rigbeat/development/contributing)** - Help improve Rigbeat
+- **[🏗️ Architecture](https://your-username.github.io/rigbeat/development/architecture)** - Technical overview
+
+### 🤖 Built with AI Assistance
+
+This project was created through AI-assisted development. Every component - from Windows service architecture to mobile-optimized dashboards - was designed and implemented collaboratively with Claude AI.
 
 ## 📜 License & Support
 
