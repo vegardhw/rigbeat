@@ -1,5 +1,8 @@
 name: CI
 
+permissions:
+  contents: read
+
 on:
   push:
     branches: [ dev ]
@@ -8,6 +11,8 @@ on:
 
 jobs:
   test:
+    permissions:
+      contents: write
     runs-on: windows-latest
     strategy:
       matrix:
@@ -60,6 +65,8 @@ jobs:
         if (Test-Path "install_script.bat") { Write-Host "OK: Install script exists" }
 
   documentation:
+    permissions:
+      contents: write
     runs-on: ubuntu-latest
     steps:
     - uses: actions/checkout@v3
