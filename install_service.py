@@ -24,8 +24,8 @@ import socket
 import sys
 import logging
 import os
-from hardware_exporter import HardwareMonitor
-from prometheus_client import start_http_server, Info
+from hardware_exporter import HardwareMonitor, system_info
+from prometheus_client import start_http_server
 import time
 
 # Ensure log directory exists
@@ -54,9 +54,6 @@ class RigbeatService(win32serviceutil.ServiceFramework):
             self.stop_event = win32event.CreateEvent(None, 0, 0, None)
             self.running = True
             socket.setdefaulttimeout(60)
-
-            # Initialize system info metric
-            self.system_info = Info('rigbeat_system', 'System information')
             logger.info("Service initialized successfully")
         except Exception as e:
             logger.error(f"Service initialization failed: {e}")
@@ -109,7 +106,7 @@ class RigbeatService(win32serviceutil.ServiceFramework):
             logger.info("Hardware monitor initialized")
             # Get and set system info
             sys_info = monitor.get_system_info()
-            self.system_info.info(sys_info)
+            system_info.info(sys_info)
             logger.info(f"System detected: CPU={sys_info['cpu']}, GPU={sys_info['gpu']}")
 
             # Start Prometheus HTTP server
