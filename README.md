@@ -110,6 +110,10 @@ Rigbeat is open source and welcomes contributions!
 - **[🤝 Contributing Guide](https://vegardhw.github.io/rigbeat/development/contributing)** - Help improve Rigbeat
 - **[🏗️ Architecture](https://vegardhw.github.io/rigbeat/development/architecture)** - Technical overview
 
+### 🤖 Built with AI Assistance
+
+This project was created through AI-assisted development. Every component - from Windows service architecture to mobile-optimized dashboards - was designed and implemented collaboratively with Claude AI.
+
 ## 📜 License & Support
 
 - **License**: MIT - see [LICENSE](LICENSE) file
