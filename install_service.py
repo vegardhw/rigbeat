@@ -49,13 +49,18 @@ class RigbeatService(win32serviceutil.ServiceFramework):
     _svc_description_ = "Prometheus exporter for hardware monitoring (CPU/GPU temps, fan speeds)"
 
     def __init__(self, args):
-        win32serviceutil.ServiceFramework.__init__(self, args)
-        self.stop_event = win32event.CreateEvent(None, 0, 0, None)
-        self.running = True
-        socket.setdefaulttimeout(60)
+        try:
+            win32serviceutil.ServiceFramework.__init__(self, args)
+            self.stop_event = win32event.CreateEvent(None, 0, 0, None)
+            self.running = True
+            socket.setdefaulttimeout(60)
 
-        # Initialize system info metric
-        self.system_info = Info('rigbeat_system', 'System information')
+            # Initialize system info metric
+            self.system_info = Info('rigbeat_system', 'System information')
+            logger.info("Service initialized successfully")
+        except Exception as e:
+            logger.error(f"Service initialization failed: {e}")
+            raise
 
     def SvcStop(self):
         """Stop the service"""
@@ -66,18 +71,34 @@ class RigbeatService(win32serviceutil.ServiceFramework):
 
     def SvcDoRun(self):
         """Main service loop"""
-        servicemanager.LogMsg(
-            servicemanager.EVENTLOG_INFORMATION_TYPE,
-            servicemanager.PYS_SERVICE_STARTED,
-            (self._svc_name_, '')
-        )
-        logger.info("Service starting...")
-        self.main()
+        try:
+            # Report service start
+            self.ReportServiceStatus(win32service.SERVICE_START_PENDING)
+
+            servicemanager.LogMsg(
+                servicemanager.EVENTLOG_INFORMATION_TYPE,
+                servicemanager.PYS_SERVICE_STARTED,
+                (self._svc_name_, '')
+            )
+            logger.info("Service starting...")
+
+            # Report service running
+            self.ReportServiceStatus(win32service.SERVICE_RUNNING)
+
+            # Run main service logic
+            self.main()
+
+        except Exception as e:
+            logger.error(f"Service run error: {e}")
+            servicemanager.LogErrorMsg(f"Service run error: {e}")
+            # Report service stopped due to error
+            self.ReportServiceStatus(win32service.SERVICE_STOPPED)
 
     def main(self):
         """Service main logic"""
         port = 9182
         interval = 2
+        monitor = None
 
         try:
             logger.info(f"Starting Rigbeat Service on port {port}")
@@ -85,7 +106,7 @@ class RigbeatService(win32serviceutil.ServiceFramework):
 
             # Initialize hardware monitor
             monitor = HardwareMonitor()
-
+            logger.info("Hardware monitor initialized")
             # Get and set system info
             sys_info = monitor.get_system_info()
             self.system_info.info(sys_info)
@@ -98,7 +119,8 @@ class RigbeatService(win32serviceutil.ServiceFramework):
             # Main monitoring loop
             while self.running:
                 try:
-                    monitor.update_metrics()
+                    if monitor:
+                        monitor.update_metrics()
                 except Exception as e:
                     logger.error(f"Error updating metrics: {e}")
 
@@ -106,15 +128,26 @@ class RigbeatService(win32serviceutil.ServiceFramework):
                 for _ in range(interval * 10):  # Check stop event every 0.1s
                     if not self.running:
                         break
+                    if win32event.WaitForSingleObject(self.stop_event, 100) == win32event.WAIT_OBJECT_0:
+                        self.running = False
+                        break
                     time.sleep(0.1)
 
+        except ImportError as e:
+            logger.error(f"Import error - missing dependencies: {e}")
+            servicemanager.LogErrorMsg(f"Missing dependencies: {e}")
         except Exception as e:
             logger.error(f"Service error: {e}")
             servicemanager.LogErrorMsg(f"Service error: {e}")
         finally:
             logger.info("Service stopped")
-
-
+            # Ensure we report stopped status
+            try:
+                self.ReportServiceStatus(win32service.SERVICE_STOPPED)
+            except Exception:
+                pass
+            except:
+                pass
 if __name__ == '__main__':
     if len(sys.argv) == 1:
         servicemanager.Initialize()
