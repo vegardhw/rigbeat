@@ -39,6 +39,7 @@ env/
 .coverage
 htmlcov/
 .tox/
+node_modules/
 
 # Logs
 *.log
