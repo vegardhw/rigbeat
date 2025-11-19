@@ -47,14 +47,19 @@ class HardwareMonitor:
     def __init__(self):
         try:
             self.w = wmi.WMI(namespace="root\\LibreHardwareMonitor")
+            self.connected = True
             logger.info("Successfully connected to LibreHardwareMonitor WMI")
         except Exception as e:
-            logger.error(f"Failed to connect to LibreHardwareMonitor WMI: {e}")
-            logger.error("Make sure LibreHardwareMonitor is running with WMI enabled!")
-            raise
+            logger.warning(f"Failed to connect to LibreHardwareMonitor WMI: {e}")
+            logger.warning("LibreHardwareMonitor may not be running or WMI may not be enabled")
+            logger.info("Monitor will run in demo mode - no metrics will be collected")
+            self.connected = False
+            self.w = None
 
     def get_sensors(self) -> List:
         """Get all hardware sensors"""
+        if not self.connected or not self.w:
+            return []
         try:
             return self.w.Sensor()
         except Exception as e:
@@ -193,6 +198,9 @@ class HardwareMonitor:
 
     def get_system_info(self) -> Dict:
         """Get system information"""
+        if not self.connected or not self.w:
+            return {'cpu': 'Demo CPU', 'gpu': 'Demo GPU', 'motherboard': 'Demo Board'}
+            
         try:
             hardware = self.w.Hardware()
             info = {

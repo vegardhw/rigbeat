@@ -107,12 +107,21 @@ class RigbeatService(win32serviceutil.ServiceFramework):
             logger.info(f"Update interval: {interval} seconds")
 
             # Initialize hardware monitor
-            monitor = HardwareMonitor()
-            logger.info("Hardware monitor initialized")
-            # Get and set system info
-            sys_info = monitor.get_system_info()
-            system_info.info(sys_info)
-            logger.info(f"System detected: CPU={sys_info['cpu']}, GPU={sys_info['gpu']}")
+            try:
+                monitor = HardwareMonitor()
+                logger.info("Hardware monitor initialized")
+                # Get and set system info
+                sys_info = monitor.get_system_info()
+                system_info.info(sys_info)
+                logger.info(f"System detected: CPU={sys_info['cpu']}, GPU={sys_info['gpu']}")
+            except Exception as e:
+                logger.warning(f"LibreHardwareMonitor not available: {e}")
+                logger.info("Running in demo mode - no actual hardware metrics will be collected")
+                monitor = None
+                # Set basic system info for demo mode
+                sys_info = {'cpu': 'Demo CPU', 'gpu': 'Demo GPU', 'motherboard': 'Demo Board'}
+                system_info.info(sys_info)
+                logger.info("Demo mode: Service will run without collecting metrics")
 
             # Start Prometheus HTTP server
             start_http_server(port)
