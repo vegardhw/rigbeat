@@ -1,7 +1,9 @@
-name: Deploy VitePress Documentation
+name: Deploy VitePress Docs
 
 on:
   pull_request:
+    types:
+      - closed
     branches: [ main]
     paths: ['docs/**']
   workflow_dispatch:

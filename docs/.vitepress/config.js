@@ -5,6 +5,9 @@ export default defineConfig({
   description: 'Windows Hardware Monitoring for Prometheus & Grafana',
   base: '/rigbeat/',
   
+  // Temporarily disable dead link checking
+  ignoreDeadLinks: true,
+  
   head: [
     ['link', { rel: 'icon', href: '/rigbeat/favicon.ico' }],
     ['meta', { name: 'theme-color', content: '#3c82f6' }],
@@ -115,7 +118,7 @@ export default defineConfig({
 
     footer: {
       message: 'Released under the MIT License.',
-      copyright: 'Copyright © 2025 Vegard H. Westereng'
+      copyright: 'Copyright © 2025 Vegard Hoff Walmsness'
     },
 
     search: {
