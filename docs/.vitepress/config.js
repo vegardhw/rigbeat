@@ -1,12 +1,18 @@
 import { defineConfig } from 'vitepress'
+import { withMermaid } from 'vitepress-plugin-mermaid'
 
-export default defineConfig({
+export default withMermaid(defineConfig({
   title: 'Rigbeat',
   description: 'Windows Hardware Monitoring for Prometheus & Grafana',
   base: '/rigbeat/',
 
   // Temporarily disable dead link checking
   ignoreDeadLinks: true,
+
+  // Mermaid configuration
+  mermaid: {
+    theme: 'default'
+  },
 
   head: [
     ['link', { rel: 'icon', href: '/rigbeat/favicon.ico' }],
@@ -116,4 +122,4 @@ export default defineConfig({
       }
     }
   }
-})
+}))

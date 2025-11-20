@@ -8,7 +8,9 @@
     "docs:preview": "vitepress preview"
   },
   "devDependencies": {
-    "vitepress": "^1.0.0-rc.31"
+    "mermaid": "^11.12.1",
+    "vitepress": "^1.0.0-rc.31",
+    "vitepress-plugin-mermaid": "^2.0.17"
   },
   "type": "module"
 }

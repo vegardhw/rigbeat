@@ -1,4 +1,4 @@
-# Release v0.1.1 - "Robustness & Documentation Update"
+# Release v0.1.1
 
 ## 🔧 Bug Fixes & Improvements
 
@@ -13,11 +13,27 @@
 - **Future-Proof Patterns**: Detection now covers Intel Core, Xeon, AMD Ryzen, Threadripper, EPYC series
 - **Robust Fallbacks**: Multiple detection patterns ensure compatibility with various hardware configurations
 
+### 🎯 User Experience Improvements
+- **Intuitive File Naming**: Renamed installation files for better clarity
+  - `install_script.bat` → `Install-Rigbeat.bat` (clear primary installer)
+  - `install.ps1` → `Install-Rigbeat.ps1` (modern PowerShell installer)
+  - `install_service.py` → `service-manager.py` (dedicated service management)
+- **Modern PowerShell Installer**: Enhanced with winget Python installation, colored output, and progress bars
+- **Optimized Update Interval**: Changed default from 2 seconds to 15 seconds for better efficiency and Prometheus alignment
+- **Professional Documentation**: Migrated from single README to comprehensive VitePress documentation site
+
 ### 📚 Documentation & Developer Experience
-- **VitePress Documentation Site**: Modern, mobile-optimized documentation with search functionality
-- **Comprehensive Guides**: Installation, troubleshooting, configuration, and development documentation
-- **GitHub Pages Integration**: Automated documentation deployment
-- **Improved README**: Clean landing page with clear value proposition
+- **VitePress Documentation Site**: Modern, mobile-optimized documentation with search functionality and Mermaid diagram support
+- **Structured Fan Documentation**: Split comprehensive fan support into logical sections (detection, troubleshooting, API reference)
+- **Interactive Architecture Diagrams**: Mermaid diagrams showing data flow from hardware to dashboards
+- **Comprehensive Troubleshooting**: Dedicated sections for fan issues, service problems, and common solutions
+- **GitHub Pages Integration**: Automated documentation deployment with professional presentation
+
+### ⚡ Performance & Architecture
+- **Efficient Update Intervals**: Default 15-second polling aligns with Prometheus scrape intervals (configurable down to 2s for gaming)
+- **Reduced Resource Usage**: Eliminated unnecessary CPU cycles from over-frequent polling
+- **Better Prometheus Integration**: Aligned client and scrape intervals for optimal data collection
+- **Winget Python Installation**: Automatic Python dependency management via Windows Package Manager
 
 ### 🔍 Testing & Development
 - **VM Compatibility**: Can now test service deployment on virtual machines without errors
@@ -34,7 +50,20 @@
 - Automatic detection when real hardware monitoring becomes available
 - Perfect for CI/CD testing and service deployment validation
 
-### Enhanced Reliability
+### Documentation Architecture
+- **Fan Detection Guide**: Comprehensive explanation of smart categorization
+- **Prometheus & Grafana Integration**: Complete setup and query examples
+- **Troubleshooting Guides**: Separate sections for common issues vs fan-specific problems
+- **API Reference**: Detailed metrics documentation with examples
+- **Interactive Diagrams**: Mermaid-powered architecture visualization
+
+### Enhanced ReliabilityInstallation
+- Simplified installation workflow with intuitive file naming
+- Modern PowerShell installer with automatic dependency management
+- Clear separation between installation (`Install-Rigbeat.*`) and service management (`service-manager.py`)
+- Enhanced error messages and user guidance throughout installation process
+
+### Documentation Architecture
 - **Zero-downtime testing**: Test service deployment without requiring actual hardware
 - **Better error recovery**: Service handles hardware disconnect/reconnect gracefully
 - **Improved diagnostics**: Clear logs indicate whether running in demo or hardware mode
@@ -49,13 +78,13 @@
 net stop Rigbeat
 
 # Remove old service
-python service_manager.py remove
+python service-manager.py remove
 
 # Update files (download new release)
 # Copy new files to C:\ProgramData\Rigbeat\
 
 # Install updated service
-python service_manager.py install
+python service-manager.py install
 
 # Start service
 net start Rigbeat
@@ -74,6 +103,12 @@ type "C:\ProgramData\Rigbeat\service.log"
 - **Service Crash on Missing LHM**: Hardware monitor failures now handled gracefully
 - **Duplicate Prometheus Metrics**: Resolved registry collision between service and exporter
 - **WMI Connection in Service Context**: Proper initialization for Windows service environment
+
+### Performance Improvements
+- **Optimized Polling**: 15-second default interval reduces CPU usage by ~87% compared to 2-second polling
+- **Configurable for Gaming**: Use `--interval 2` for real-time monitoring during gaming sessions
+- **Prometheus Alignment**: Eliminates waste from updates between scrapes
+- **PowerShell Character Encoding**: Fixed bullet point issues in Windows PowerShell execution
 
 ### Code Improvements
 - Added `self.connected` flag to track hardware monitor state
@@ -118,7 +153,7 @@ Planned features for the v1.0.0 major release:
 
 ---
 
-# Release v0.1.0 - "Initial Release"
+# Release v0.1.0 - Initial Release
 
 ## 🎉 What's New
 
@@ -155,7 +190,7 @@ Planned features for the v1.0.0 major release:
 3. **Install LibreHardwareMonitor** from [releases](https://github.com/LibreHardwareMonitor/LibreHardwareMonitor/releases)
    - Run as Administrator
    - Enable WMI in Options (required!)
-4. **Run** `Install-Rigbeat.bat` as Administrator
+4. **Run** `Install-Rigbeat.bat` as Administrator (improved installer with modern PowerShell backend)
 5. **Test** fan detection: `python test_fans.py`
 6. **Start** the service: `net start Rigbeat`
 
@@ -261,8 +296,10 @@ See [CHANGELOG.md](https://github.com/vegardhw/rigbeat/blob/main/CHANGELOG.md) f
 ---
 
 **Assets:**
-- `rigbeat-v1.0.0.zip` - Complete source code with all scripts
+- `rigbeat-v0.1.1.zip` - Complete source code with intuitive file naming
 - `grafana_dashboard.json` - Mobile-optimized Grafana dashboard
-- `prometheus_config.txt` - Example Prometheus configuration with alerts
-- `Install-Rigbeat.bat` - Automated Windows installer
-- `FAN_SUPPORT.md` - Comprehensive fan troubleshooting guide
+- `prometheus_config.yml` - Example Prometheus configuration with alerts
+- `Install-Rigbeat.bat` - Modern Windows installer with PowerShell backend
+- `Install-Rigbeat.ps1` - Enhanced PowerShell installer with winget support
+- `service-manager.py` - Dedicated service management tool
+- **Documentation**: [https://vegardhw.github.io/rigbeat/](https://vegardhw.github.io/rigbeat/) - Comprehensive VitePress documentation site
