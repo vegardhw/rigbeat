@@ -26,6 +26,7 @@ export default defineConfig({
       { text: 'Home', link: '/' },
       { text: 'Get Started', link: '/getting-started/installation' },
       { text: 'Guide', link: '/guide/overview' },
+      { text: 'Troubleshooting', link: '/troubleshooting/common-issues' },
       { text: 'Reference', link: '/reference/metrics' },
       {
         text: 'v0.1.1',
@@ -50,7 +51,19 @@ export default defineConfig({
         {
           text: 'User Guide',
           items: [
-            { text: 'Overview', link: '/guide/overview' }
+            { text: 'Overview', link: '/guide/overview' },
+            { text: 'Fan Detection', link: '/guide/fan-detection' },
+            { text: 'Prometheus & Grafana', link: '/guide/prometheus-grafana' }
+          ]
+        }
+      ],
+
+      '/troubleshooting/': [
+        {
+          text: 'Troubleshooting',
+          items: [
+            { text: 'Common Issues', link: '/troubleshooting/common-issues' },
+            { text: 'Fan Issues', link: '/troubleshooting/fan-issues' }
           ]
         }
       ],
@@ -59,7 +72,8 @@ export default defineConfig({
         {
           text: 'Reference',
           items: [
-            { text: 'Metrics API', link: '/reference/metrics' }
+            { text: 'Metrics API', link: '/reference/metrics' },
+            { text: 'Fan Metrics', link: '/reference/fan-metrics' }
           ]
         }
       ]

@@ -133,6 +133,6 @@ graph TD
 Ready to start monitoring? Follow our step-by-step guides:
 
 1. **[Installation →](/getting-started/installation)** - Get Rigbeat installed
-2. **[Hardware Setup →](/guide/hardware-setup)** - Configure LibreHardwareMonitor
-3. **[Grafana Dashboard →](/guide/grafana)** - Set up beautiful visualizations
-4. **[Best Practices →](/guide/best-practices)** - Optimize your monitoring setup
+2. **[Fan Detection →](/guide/fan-detection)** - Understand how fans are categorized
+3. **[Prometheus & Grafana →](/guide/prometheus-grafana)** - Set up metrics and dashboards
+4. **[Troubleshooting →](/troubleshooting/common-issues)** - Resolve common issues
