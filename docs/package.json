@@ -1,6 +1,6 @@
 {
   "name": "rigbeat-docs",
-  "version": "1.0.0",
+  "version": "0.1.1",
   "description": "Documentation for Rigbeat - Windows Hardware Monitoring",
   "scripts": {
     "docs:dev": "vitepress dev",

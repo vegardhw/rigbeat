@@ -1,6 +1,6 @@
 """
-Windows Service installer for Rigbeat
-Run with: python install_service.py install
+Rigbeat Service Manager
+Manage the Rigbeat Windows service: install, remove, start, stop, debug
 
 Configuration:
 - Service runs on port 9182 by default
@@ -9,11 +9,11 @@ Configuration:
 - Requires LibreHardwareMonitor running with WMI enabled
 
 Usage:
-  Install:   python install_service.py install
-  Start:     python install_service.py start
-  Stop:      python install_service.py stop
-  Remove:    python install_service.py remove
-  Debug:     python install_service.py debug
+  Install:   python service_manager.py install
+  Start:     python service_manager.py start
+  Stop:      python service_manager.py stop
+  Remove:    python service_manager.py remove
+  Debug:     python service_manager.py debug
 """
 
 import win32serviceutil

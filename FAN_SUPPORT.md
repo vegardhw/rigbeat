@@ -210,8 +210,8 @@ elif sensor_type == "Fan":
 - **Fixed in v1.0.1+**: Service now properly initializes COM
 - Update to latest version and reinstall service:
   ```bash
-  python install_service.py remove
-  python install_service.py install
+  python service_manager.py remove
+  python service_manager.py install
   net start Rigbeat
   ```
 - Check service logs: `C:\ProgramData\Rigbeat\service.log`

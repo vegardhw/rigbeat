@@ -43,7 +43,7 @@ Rigbeat is a lightweight **Prometheus exporter** designed specifically for Windo
 
 Perfect for:
 - 🎮 **Gaming PCs** - Monitor temps during intense sessions
-- 💼 **Workstations** - Track hardware performance during heavy workloads  
+- 💼 **Workstations** - Track hardware performance during heavy workloads
 - 🏠 **Home Labs** - Keep tabs on your hardware health
 - 🔧 **System Builders** - Validate cooling performance
 
@@ -54,7 +54,7 @@ Perfect for:
 rigbeat_cpu_temperature_celsius{sensor="CPU Package"} 45.0
 rigbeat_cpu_temperature_celsius{sensor="Core Complex 1"} 42.0
 
-# GPU Metrics  
+# GPU Metrics
 rigbeat_gpu_temperature_celsius{gpu="NVIDIA GeForce RTX 4080"} 52.0
 rigbeat_gpu_load_percent{gpu="nvidia_geforce_rtx_4080",type="core"} 85.0
 
@@ -67,7 +67,7 @@ rigbeat_fan_speed_rpm{fan="chassis_fan_1",type="chassis"} 1200.0
 ## Why Choose Rigbeat?
 
 - **🎯 Gaming Focused**: Designed specifically for Windows gaming hardware
-- **🧠 Smart Detection**: Automatically identifies and categorizes your fans  
+- **🧠 Smart Detection**: Automatically identifies and categorizes your fans
 - **📱 Mobile First**: Dashboard works beautifully on your phone/tablet
 - **🛡️ Production Ready**: Robust Windows service with proper error handling
 - **☁️ VM Compatible**: Test deployment on virtual machines with demo mode

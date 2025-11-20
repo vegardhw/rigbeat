@@ -1,4 +1,4 @@
-# Release v1.0.1 - "Robustness & Reliability Update"
+# Release v0.1.1 - "Robustness & Documentation Update"
 
 ## 🔧 Bug Fixes & Improvements
 
@@ -8,18 +8,24 @@
 - **Demo Mode**: Service runs successfully on VMs and test systems without hardware monitoring
 - **Enhanced Error Logging**: Better error messages and troubleshooting information in service logs
 
+### 🔧 CPU Detection Improvements
+- **Enhanced CPU Detection**: Added comprehensive support for Intel CPUs alongside existing AMD support
+- **Future-Proof Patterns**: Detection now covers Intel Core, Xeon, AMD Ryzen, Threadripper, EPYC series
+- **Robust Fallbacks**: Multiple detection patterns ensure compatibility with various hardware configurations
+
+### 📚 Documentation & Developer Experience
+- **VitePress Documentation Site**: Modern, mobile-optimized documentation with search functionality
+- **Comprehensive Guides**: Installation, troubleshooting, configuration, and development documentation
+- **GitHub Pages Integration**: Automated documentation deployment
+- **Improved README**: Clean landing page with clear value proposition
+
 ### 🔍 Testing & Development
 - **VM Compatibility**: Can now test service deployment on virtual machines without errors
 - **Improved Error Handling**: Hardware detection failures are logged as warnings instead of fatal errors
 - **Better Service Lifecycle**: Proper COM cleanup and status reporting throughout service lifecycle
 - **Enhanced Debugging**: Service logs show clear distinction between demo mode and hardware monitoring mode
 
-### 📝 Documentation
-- **Updated README**: Added troubleshooting section for Windows service issues
-- **Enhanced Installation Guide**: Added information about demo mode and VM testing
-- **Service Management**: Updated service installation and management instructions
-
-## 🎆 What's New
+## 🆕 What's New
 
 ### Demo Mode Features
 - Service starts successfully without LibreHardwareMonitor
@@ -36,20 +42,20 @@
 
 ## 🔄 Upgrade Instructions
 
-### From v1.0.0
+### From v0.1.0
 
 ```bash
 # Stop the service
 net stop Rigbeat
 
 # Remove old service
-python install_service.py remove
+python service_manager.py remove
 
 # Update files (download new release)
 # Copy new files to C:\ProgramData\Rigbeat\
 
 # Install updated service
-python install_service.py install
+python service_manager.py install
 
 # Start service
 net start Rigbeat
@@ -93,9 +99,26 @@ To test the improvements:
 4. **Metrics Endpoint**: Confirm `http://localhost:9182/metrics` responds
 5. **Hardware Mode**: Install LibreHardwareMonitor to switch to full monitoring
 
+## 🎯 Roadmap to v1.0.0
+
+Planned features for the v1.0.0 major release:
+
+### 🔮 Upcoming Features
+- **System Tray Application**: GUI for service management and quick status
+- **Enhanced Dashboard**: Additional panels and customization options
+- **Alert Templates**: Pre-configured alerting rules for common scenarios
+- **Multi-PC Support**: Centralized monitoring for multiple systems
+- **Performance Optimizations**: Reduced resource usage and faster startup
+
+### 📈 Stability Goals
+- **Extensive Hardware Testing**: Validation across diverse hardware configurations
+- **Production Hardening**: Enhanced error recovery and edge case handling
+- **Documentation Completion**: Full guides for all features and use cases
+- **Community Feedback**: Integration of user suggestions and bug reports
+
 ---
 
-# Release v1.0.0 - "First Stable Release"
+# Release v0.1.0 - "Initial Release"
 
 ## 🎉 What's New
 
@@ -106,7 +129,7 @@ To test the improvements:
 - **Advanced Logging**: File logging, debug modes, and enhanced troubleshooting
 - **Fan Testing Tool**: `test_fans.py` script for diagnosing fan detection issues
 - **Mobile-Optimized Dashboard**: Grafana dashboard designed for iPad Pro and mobile viewing
-- **Windows Service Support**: Complete service installation with `install_service.py`
+- **Windows Service Support**: Complete service installation with `service_manager.py`
 - **Configuration Examples**: Prometheus config and alerting rules included
 
 ### 🐛 Bug Fixes
@@ -132,7 +155,7 @@ To test the improvements:
 3. **Install LibreHardwareMonitor** from [releases](https://github.com/LibreHardwareMonitor/LibreHardwareMonitor/releases)
    - Run as Administrator
    - Enable WMI in Options (required!)
-4. **Run** `install_script.bat` as Administrator
+4. **Run** `Install-Rigbeat.bat` as Administrator
 5. **Test** fan detection: `python test_fans.py`
 6. **Start** the service: `net start Rigbeat`
 
@@ -161,7 +184,7 @@ Visit `http://localhost:9182/metrics` to see:
 - `rigbeat_gpu_temperature_celsius` - GPU temperature
 - `rigbeat_fan_speed_rpm{fan="X", type="Y"}` - All fan speeds with smart categorization
   - `type="gpu"`: Graphics card fans
-  - `type="cpu"`: CPU/cooler fans  
+  - `type="cpu"`: CPU/cooler fan
   - `type="chassis"`: Case fans
   - `type="other"`: Pumps, unlabeled fans
 - `rigbeat_cpu_load_percent` - CPU usage per core
@@ -241,5 +264,5 @@ See [CHANGELOG.md](https://github.com/vegardhw/rigbeat/blob/main/CHANGELOG.md) f
 - `rigbeat-v1.0.0.zip` - Complete source code with all scripts
 - `grafana_dashboard.json` - Mobile-optimized Grafana dashboard
 - `prometheus_config.txt` - Example Prometheus configuration with alerts
-- `install_script.bat` - Automated Windows installer
+- `Install-Rigbeat.bat` - Automated Windows installer
 - `FAN_SUPPORT.md` - Comprehensive fan troubleshooting guide

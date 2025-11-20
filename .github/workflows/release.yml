@@ -42,13 +42,14 @@ jobs:
 
         # Copy main files
         copy hardware_exporter.py rigbeat-release\
-        copy install_service.py rigbeat-release\
+        copy service_manager.py rigbeat-release\
         copy test_fans.py rigbeat-release\
         copy requirements.txt rigbeat-release\
         copy README.md rigbeat-release\
         copy LICENSE rigbeat-release\
         copy FAN_SUPPORT.md rigbeat-release\
-        copy install_script.bat rigbeat-release\
+        copy Install-Rigbeat.bat rigbeat-release\
+        copy Install-Rigbeat.ps1 rigbeat-release\
         copy prometheus_config.yml rigbeat-release\
         copy grafana_dashboard.json rigbeat-release\
         copy RELEASE_NOTES.md rigbeat-release\
@@ -62,7 +63,7 @@ jobs:
         echo "2. Run LibreHardwareMonitor as Administrator" >> rigbeat-release\INSTALL.txt
         echo "   - Enable WMI in Options (required!)" >> rigbeat-release\INSTALL.txt
         echo "" >> rigbeat-release\INSTALL.txt
-        echo "3. Right-click install_script.bat and 'Run as Administrator'" >> rigbeat-release\INSTALL.txt
+        echo "3. Right-click Install-Rigbeat.bat and 'Run as Administrator'" >> rigbeat-release\INSTALL.txt
         echo "" >> rigbeat-release\INSTALL.txt
         echo "4. Test: python test_fans.py" >> rigbeat-release\INSTALL.txt
         echo "" >> rigbeat-release\INSTALL.txt
@@ -74,7 +75,7 @@ jobs:
       run: |
         cd rigbeat-release
         python -m py_compile hardware_exporter.py
-        python -m py_compile install_service.py
+        python -m py_compile service_manager.py
         python -m py_compile test_fans.py
         python hardware_exporter.py --help
         echo "✓ Release package validated"

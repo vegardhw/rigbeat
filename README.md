@@ -16,7 +16,7 @@
 ## ✨ Key Features
 
 - 🌡️ **Real-time Temperature Monitoring** - CPU/GPU temperatures per core and sensor
-- 💨 **Smart Fan Detection** - Auto-categorizes GPU, CPU, chassis, and other fans  
+- 💨 **Smart Fan Detection** - Auto-categorizes GPU, CPU, chassis, and other fans
 - 📊 **Performance Metrics** - CPU/GPU load, clock speeds, memory usage
 - 📱 **Mobile-Optimized Dashboard** - Perfect for tablets and phones
 - 🛡️ **Robust Windows Service** - Graceful handling with demo mode support
@@ -33,10 +33,10 @@
 # https://github.com/LibreHardwareMonitor/LibreHardwareMonitor/releases
 
 # Run install script as Administrator
-# Right-click install_script.bat → "Run as Administrator"
+# Right-click Install-Rigbeat.bat → "Run as Administrator"
 ```
 
-### 2. **Verify Installation** 
+### 2. **Verify Installation**
 Visit **http://localhost:9182/metrics** to see your hardware metrics:
 ```prometheus
 rigbeat_cpu_temperature_celsius{sensor="CPU Package"} 45.0
