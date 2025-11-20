@@ -69,6 +69,11 @@ graph TD
 - **GPU temperatures** with device identification
 - **Intelligent labeling** (Core Complex, CPU Package, etc.)
 
+### ⚡ Power Consumption
+- **CPU power draw** - Package power monitoring in Watts
+- **GPU power draw** - Graphics card power consumption
+- **Efficiency analysis** - Performance per Watt calculations
+
 ### 💨 Fan Management
 - **Smart categorization**: GPU, CPU, Chassis, Other
 - **Automatic numbering** from sensor names

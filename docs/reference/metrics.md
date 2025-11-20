@@ -40,6 +40,46 @@ rigbeat_gpu_temperature_celsius{gpu="nvidia_geforce_rtx_4080"} 52.0
 rigbeat_gpu_temperature_celsius{gpu="amd_radeon_rx_7900_xt"} 68.0
 ```
 
+## Power Metrics
+
+### `rigbeat_cpu_power_watts`
+**Type**: Gauge  
+**Description**: CPU power consumption in Watts  
+**Labels**:
+- `sensor` - Power sensor identifier
+
+**Example Values**:
+```prometheus
+rigbeat_cpu_power_watts{sensor="CPU Package"} 65.2
+```
+
+**Sensor Types**:
+- `CPU Package` - Total CPU package power consumption (Intel/AMD)
+
+**Use Cases**:
+- Performance per Watt calculations
+- Power efficiency analysis  
+- Thermal correlation with power draw
+- System power budgeting
+
+### `rigbeat_gpu_power_watts`
+**Type**: Gauge  
+**Description**: GPU power consumption in Watts  
+**Labels**:
+- `gpu` - GPU device identifier
+
+**Example Values**:
+```prometheus
+rigbeat_gpu_power_watts{gpu="nvidia_geforce_rtx_4080"} 285.7
+rigbeat_gpu_power_watts{gpu="amd_radeon_rx_7900_xt"} 315.2
+```
+
+**Use Cases**:
+- Gaming power consumption monitoring
+- Power limit detection and analysis
+- Undervolting efficiency validation
+- PSU capacity planning
+
 ## Performance Metrics
 
 ### `rigbeat_cpu_load_percent`
@@ -212,6 +252,26 @@ rigbeat_cpu_clock_mhz > 4000
 (rigbeat_memory_used_gb / (rigbeat_memory_used_gb + rigbeat_memory_available_gb)) * 100
 ```
 
+**CPU Performance per Watt**:
+```promql
+rigbeat_cpu_load_percent{core="total"} / rigbeat_cpu_power_watts
+```
+
+**GPU Performance per Watt**:
+```promql
+rigbeat_gpu_load_percent{type="core"} / rigbeat_gpu_power_watts
+```
+
+**Total system power consumption**:
+```promql
+rigbeat_cpu_power_watts + rigbeat_gpu_power_watts
+```
+
+**Power vs Temperature correlation**:
+```promql
+rigbeat_cpu_power_watts and rigbeat_cpu_temperature_celsius
+```
+
 ## Alerting Rules
 
 ### Temperature Alerts
@@ -262,6 +322,45 @@ rigbeat_cpu_clock_mhz > 4000
     severity: critical
   annotations:
     summary: "GPU fan failure detected"
+    description: "GPU fan {{ $labels.fan }} has stopped - check hardware"
+```
+
+### Power Alerts
+
+**High CPU power consumption**:
+```yaml
+- alert: HighCPUPower
+  expr: rigbeat_cpu_power_watts > 150
+  for: 5m
+  labels:
+    severity: warning
+  annotations:
+    summary: "CPU power consumption high"
+    description: "CPU drawing {{ $value }}W - check thermal throttling"
+```
+
+**GPU power limit reached**:
+```yaml
+- alert: GPUPowerLimit
+  expr: rigbeat_gpu_power_watts > 350
+  for: 2m
+  labels:
+    severity: warning
+  annotations:
+    summary: "GPU approaching power limit"
+    description: "GPU at {{ $value }}W - performance may be limited"
+```
+
+**System power consumption high**:
+```yaml
+- alert: HighSystemPower
+  expr: rigbeat_cpu_power_watts + rigbeat_gpu_power_watts > 500
+  for: 3m
+  labels:
+    severity: info
+  annotations:
+    summary: "System power draw high"
+    description: "Total CPU+GPU power: {{ $value }}W"
 ```
 
 ## Data Types

@@ -300,7 +300,7 @@ try {
     Write-Host ""
 
     Write-Host "2. Test Hardware Detection (Optional but recommended):" -ForegroundColor White
-    Write-Host "   cd `"$serviceDir`"" -ForegroundColor Gray
+    Write-Host "   cd ""$serviceDir""" -ForegroundColor Gray
     Write-Host "   python test_fans.py" -ForegroundColor Gray
     Write-Host ""
 

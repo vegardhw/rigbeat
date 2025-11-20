@@ -1,6 +1,6 @@
 """
 Rigbeat - Prometheus Exporter
-Exports Windows hardware metrics (CPU/GPU temps, fan speeds, loads) for Prometheus/Grafana
+Exports Windows hardware metrics (CPU/GPU temps, fan speeds, loads, power) for Prometheus/Grafana
 
 Requirements:
     - LibreHardwareMonitor running with WMI enabled
@@ -27,11 +27,13 @@ logger = logging.getLogger(__name__)
 cpu_temp = Gauge('rigbeat_cpu_temperature_celsius', 'CPU temperature in Celsius', ['sensor'])
 cpu_load = Gauge('rigbeat_cpu_load_percent', 'CPU load percentage', ['core'])
 cpu_clock = Gauge('rigbeat_cpu_clock_mhz', 'CPU clock speed in MHz', ['core'])
+cpu_power = Gauge('rigbeat_cpu_power_watts', 'CPU power consumption in Watts', ['sensor'])
 
 gpu_temp = Gauge('rigbeat_gpu_temperature_celsius', 'GPU temperature in Celsius', ['gpu'])
 gpu_load = Gauge('rigbeat_gpu_load_percent', 'GPU load percentage', ['gpu', 'type'])
 gpu_memory = Gauge('rigbeat_gpu_memory_used_mb', 'GPU memory used in MB', ['gpu'])
 gpu_clock = Gauge('rigbeat_gpu_clock_mhz', 'GPU clock speed in MHz', ['gpu', 'type'])
+gpu_power = Gauge('rigbeat_gpu_power_watts', 'GPU power consumption in Watts', ['gpu'])
 
 fan_rpm = Gauge('rigbeat_fan_speed_rpm', 'Fan speed in RPM', ['fan', 'type'])
 
@@ -161,6 +163,16 @@ class HardwareMonitor:
                     gpu_name = parent.split("/")[-1] if "/" in parent else "gpu0"
                     clock_type = "core" if "Core" in sensor_name else "memory" if "Memory" in sensor_name else "other"
                     gpu_clock.labels(gpu=gpu_name, type=clock_type).set(value)
+
+                # CPU Power
+                elif sensor_type == "Power" and self._is_cpu_sensor(parent) and "Package" in sensor_name:
+                    # CPU Package power consumption
+                    cpu_power.labels(sensor="CPU Package").set(value)
+
+                # GPU Power  
+                elif sensor_type == "Power" and any(x in parent.lower() for x in ["/gpu", "nvidia", "amd", "radeon"]) and "Package" in sensor_name:
+                    gpu_name = parent.split("/")[-1] if "/" in parent else "gpu0" 
+                    gpu_power.labels(gpu=gpu_name).set(value)
 
                 # Fan Speeds
                 elif sensor_type == "Fan":
