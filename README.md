@@ -17,10 +17,11 @@
 
 - 🌡️ **Real-time Temperature Monitoring** - CPU/GPU temperatures per core and sensor
 - 💨 **Smart Fan Detection** - Auto-categorizes GPU, CPU, chassis, and other fans
+- ⚡ **Power Consumption Tracking** - CPU/GPU power draw monitoring for efficiency analysis
 - 📊 **Performance Metrics** - CPU/GPU load, clock speeds, memory usage
 - 📱 **Mobile-Optimized Dashboard** - Perfect for tablets and phones
 - 🛡️ **Robust Windows Service** - Graceful handling with demo mode support
-- ⚡ **Low Overhead** - Under 50MB RAM, minimal performance impact
+- 🔧 **Low Overhead** - Under 50MB RAM, minimal performance impact
 
 ## 🚀 Quick Start
 
@@ -40,7 +41,9 @@
 Visit **http://localhost:9182/metrics** to see your hardware metrics:
 ```prometheus
 rigbeat_cpu_temperature_celsius{sensor="CPU Package"} 45.0
+rigbeat_cpu_power_watts{sensor="CPU Package"} 65.2
 rigbeat_gpu_temperature_celsius{gpu="nvidia_geforce_rtx_4080"} 52.0
+rigbeat_gpu_power_watts{gpu="nvidia_geforce_rtx_4080"} 185.5
 rigbeat_fan_speed_rpm{fan="gpu_fan_1",type="gpu"} 1850.0
 ```
 
@@ -84,6 +87,10 @@ rigbeat_fan_speed_rpm{fan="chassis_fan_1",type="chassis"} 1200.0  # Case fans
 rigbeat_cpu_temperature_celsius{sensor="CPU Package"} 45.0
 rigbeat_cpu_temperature_celsius{sensor="Core Complex 1"} 42.0
 rigbeat_gpu_temperature_celsius{gpu="nvidia_geforce_rtx_4080"} 52.0
+
+# Power consumption tracking
+rigbeat_cpu_power_watts{sensor="CPU Package"} 65.2
+rigbeat_gpu_power_watts{gpu="nvidia_geforce_rtx_4080"} 185.5
 
 # Performance metrics
 rigbeat_cpu_load_percent{core="total"} 45.5

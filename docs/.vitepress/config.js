@@ -35,7 +35,7 @@ export default withMermaid(defineConfig({
       { text: 'Troubleshooting', link: '/troubleshooting/common-issues' },
       { text: 'Reference', link: '/reference/metrics' },
       {
-        text: 'v0.1.1',
+        text: 'v0.1.2',
         items: [
           { text: 'GitHub', link: 'https://github.com/vegardhw/rigbeat' }
         ]
@@ -59,6 +59,7 @@ export default withMermaid(defineConfig({
           items: [
             { text: 'Overview', link: '/guide/overview' },
             { text: 'Fan Detection', link: '/guide/fan-detection' },
+            { text: 'Power Monitoring', link: '/guide/power-monitoring' },
             { text: 'Prometheus & Grafana', link: '/guide/prometheus-grafana' }
           ]
         }
