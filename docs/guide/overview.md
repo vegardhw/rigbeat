@@ -10,7 +10,7 @@ graph TD
     B --> C[Rigbeat Service]
     C --> D[Prometheus Metrics]
     D --> E[Grafana Dashboard]
-    
+
     F[Hardware Sensors] --> A
     G[Fan Controllers] --> A
     H[Temperature Sensors] --> A
@@ -20,7 +20,7 @@ graph TD
 
 ### Data Flow
 1. **Hardware Sensors** → LibreHardwareMonitor reads CPU/GPU temps, fan speeds
-2. **WMI Interface** → Exposes sensor data via Windows Management Instrumentation  
+2. **WMI Interface** → Exposes sensor data via Windows Management Instrumentation
 3. **Rigbeat Service** → Collects and processes sensor data every 2 seconds
 4. **Prometheus Metrics** → Exports standardized metrics on port 9182
 5. **Grafana Dashboard** → Visualizes metrics with beautiful graphs and alerts
@@ -51,17 +51,17 @@ graph TD
 
 ### 🌡️ Temperature Monitoring
 - **CPU temperatures** per core/sensor
-- **GPU temperatures** with device identification  
+- **GPU temperatures** with device identification
 - **Intelligent labeling** (Core Complex, CPU Package, etc.)
 
-### 💨 Fan Management  
+### 💨 Fan Management
 - **Smart categorization**: GPU, CPU, Chassis, Other
 - **Automatic numbering** from sensor names
 - **RPM monitoring** with type-based grouping
 
 ### 📊 Performance Metrics
 - **CPU/GPU load** percentages per core
-- **Clock speeds** for CPU and GPU  
+- **Clock speeds** for CPU and GPU
 - **Memory usage** (system RAM and GPU memory)
 
 ### 🔧 System Information
@@ -77,7 +77,7 @@ graph TD
 - **Complete metrics collection** for all supported hardware
 - **Service logs**: "Hardware monitoring active"
 
-### Demo Mode  
+### Demo Mode
 - **LibreHardwareMonitor unavailable** or WMI disabled
 - **Service remains functional** for deployment testing
 - **Basic system information** with demo values
@@ -89,7 +89,7 @@ graph TD
 ```python
 # Examples of automatic fan categorization:
 "GPU Fan #1"     → gpu_fan_1    (type: gpu)
-"CPU Fan"        → cpu_fan      (type: cpu)  
+"CPU Fan"        → cpu_fan      (type: cpu)
 "Chassis Fan 2"  → chassis_fan_2 (type: chassis)
 "AIO Pump"       → aio_pump     (type: other)
 ```
@@ -113,7 +113,7 @@ graph TD
 - **Fan curve optimization** based on real temperature data
 - **Performance tracking** to identify thermal throttling
 
-### 💼 Workstations  
+### 💼 Workstations
 - **Render farm monitoring** during heavy 3D/video work
 - **CPU/GPU utilization** tracking for workload optimization
 - **Preventive maintenance** through thermal trend analysis
@@ -133,6 +133,6 @@ graph TD
 Ready to start monitoring? Follow our step-by-step guides:
 
 1. **[Installation →](/getting-started/installation)** - Get Rigbeat installed
-2. **[Hardware Setup →](/guide/hardware-setup)** - Configure LibreHardwareMonitor  
+2. **[Hardware Setup →](/guide/hardware-setup)** - Configure LibreHardwareMonitor
 3. **[Grafana Dashboard →](/guide/grafana)** - Set up beautiful visualizations
 4. **[Best Practices →](/guide/best-practices)** - Optimize your monitoring setup

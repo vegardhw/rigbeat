@@ -35,7 +35,7 @@ WMI must be enabled in LibreHardwareMonitor for Rigbeat to access sensors!
 
 ### 3. Run Installation Script
 
-Right-click `install_script.bat` and select **"Run as Administrator"**
+Right-click `Install-Rigbeat.bat` and select **"Run as Administrator"**
 
 The script will:
 - ✅ Install Python dependencies
@@ -90,7 +90,7 @@ python hardware_exporter.py --port 9183 --interval 5
 
 ```bash
 # Install service
-python install_service.py install
+python service_manager.py install
 
 # Start service
 net start Rigbeat

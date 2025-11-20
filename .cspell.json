@@ -7,7 +7,8 @@
         "**/.git/**",
         ".vscode",
         "**/*.py",
-        "**/*.json"
+        "**/*.json",
+        "**/*.ps1"
     ],
     "words": [
         "Alertmanager",

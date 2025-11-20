@@ -4,10 +4,10 @@ export default defineConfig({
   title: 'Rigbeat',
   description: 'Windows Hardware Monitoring for Prometheus & Grafana',
   base: '/rigbeat/',
-  
+
   // Temporarily disable dead link checking
   ignoreDeadLinks: true,
-  
+
   head: [
     ['link', { rel: 'icon', href: '/rigbeat/favicon.ico' }],
     ['meta', { name: 'theme-color', content: '#3c82f6' }],
@@ -21,17 +21,16 @@ export default defineConfig({
 
   themeConfig: {
     logo: '/logo.svg',
-    
+
     nav: [
       { text: 'Home', link: '/' },
       { text: 'Get Started', link: '/getting-started/installation' },
       { text: 'Guide', link: '/guide/overview' },
       { text: 'Reference', link: '/reference/metrics' },
       {
-        text: 'v1.0.1',
+        text: 'v0.1.1',
         items: [
-          { text: 'Changelog', link: '/changelog' },
-          { text: 'Contributing', link: '/development/contributing' }
+          { text: 'GitHub', link: 'https://github.com/vegardhw/rigbeat' }
         ]
       }
     ],
@@ -42,43 +41,16 @@ export default defineConfig({
           text: 'Getting Started',
           items: [
             { text: 'Installation', link: '/getting-started/installation' },
-            { text: 'Requirements', link: '/getting-started/requirements' },
-            { text: 'First Run', link: '/getting-started/first-run' },
-            { text: 'Quick Start', link: '/getting-started/quick-start' }
-          ]
-        }
-      ],
-      
-      '/guide/': [
-        {
-          text: 'User Guide',
-          items: [
-            { text: 'Overview', link: '/guide/overview' },
-            { text: 'Hardware Setup', link: '/guide/hardware-setup' },
-            { text: 'Windows Service', link: '/guide/service' },
-            { text: 'Prometheus Config', link: '/guide/prometheus' },
-            { text: 'Grafana Dashboard', link: '/guide/grafana' },
-            { text: 'Docker Setup', link: '/guide/docker' }
-          ]
-        },
-        {
-          text: 'Monitoring',
-          items: [
-            { text: 'Fan Detection', link: '/guide/fans' },
-            { text: 'Alerting', link: '/guide/alerting' },
-            { text: 'Best Practices', link: '/guide/best-practices' }
+            { text: 'Requirements', link: '/getting-started/requirements' }
           ]
         }
       ],
 
-      '/troubleshooting/': [
+      '/guide/': [
         {
-          text: 'Troubleshooting',
+          text: 'User Guide',
           items: [
-            { text: 'Common Issues', link: '/troubleshooting/common-issues' },
-            { text: 'Fan Detection', link: '/troubleshooting/fans' },
-            { text: 'Service Problems', link: '/troubleshooting/service' },
-            { text: 'Hardware Compatibility', link: '/troubleshooting/hardware' }
+            { text: 'Overview', link: '/guide/overview' }
           ]
         }
       ],
@@ -87,22 +59,7 @@ export default defineConfig({
         {
           text: 'Reference',
           items: [
-            { text: 'Metrics API', link: '/reference/metrics' },
-            { text: 'Configuration', link: '/reference/configuration' },
-            { text: 'Command Line', link: '/reference/cli' },
-            { text: 'Windows Service', link: '/reference/service' }
-          ]
-        }
-      ],
-
-      '/development/': [
-        {
-          text: 'Development',
-          items: [
-            { text: 'Contributing', link: '/development/contributing' },
-            { text: 'Building', link: '/development/building' },
-            { text: 'Architecture', link: '/development/architecture' },
-            { text: 'Testing', link: '/development/testing' }
+            { text: 'Metrics API', link: '/reference/metrics' }
           ]
         }
       ]

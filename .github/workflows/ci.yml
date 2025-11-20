@@ -32,7 +32,7 @@ jobs:
 
     - name: Lint Python files
       run: |
-        pylint hardware_exporter.py install_service.py test_fans.py --disable=C0103,C0301,C0114,C0115,C0116
+        pylint hardware_exporter.py service_manager.py test_fans.py --disable=C0103,C0301,C0114,C0115,C0116
       continue-on-error: true
 
     - name: Check code formatting with black
@@ -43,7 +43,7 @@ jobs:
     - name: Validate Python syntax
       run: |
         python -m py_compile hardware_exporter.py
-        python -m py_compile install_service.py
+        python -m py_compile service_manager.py
         python -m py_compile test_fans.py
 
     - name: Test import statements
@@ -60,7 +60,7 @@ jobs:
         if (Test-Path "prometheus_config.txt") { Write-Host "OK: Prometheus config exists" }
         if (Test-Path "grafana_dashboard.json") { Write-Host "OK: Grafana dashboard exists" }
         if (Test-Path "FAN_SUPPORT.md") { Write-Host "OK: Fan support docs exist" }
-        if (Test-Path "install_script.bat") { Write-Host "OK: Install script exists" }
+        if (Test-Path "Install-Rigbeat.bat") { Write-Host "OK: Install script exists" }
 
   documentation:
     permissions:
