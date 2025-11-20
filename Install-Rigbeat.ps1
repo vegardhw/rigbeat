@@ -314,9 +314,9 @@ try {
     Write-Host ""
     
     Write-Host "Advanced Options:" -ForegroundColor Yellow
-    Write-Host "• Debug logging: python hardware_exporter.py --debug" -ForegroundColor Gray
-    Write-Host "• Custom port: python hardware_exporter.py --port 9183" -ForegroundColor Gray
-    Write-Host "• Service logs: $serviceDir\service.log" -ForegroundColor Gray
+    Write-Host "- Debug logging: python hardware_exporter.py --debug" -ForegroundColor Gray
+    Write-Host "- Custom port: python hardware_exporter.py --port 9183" -ForegroundColor Gray
+    Write-Host "- Service logs: $serviceDir\service.log" -ForegroundColor Gray
     Write-Host ""
     
     Write-Host "Documentation: " -NoNewline -ForegroundColor White
@@ -331,10 +331,10 @@ catch {
     Write-Error "Installation failed: $_"
     Write-Host ""
     Write-Host "Troubleshooting:" -ForegroundColor Yellow
-    Write-Host "• Ensure you're running as Administrator" -ForegroundColor Gray
-    Write-Host "• Check internet connection for package downloads" -ForegroundColor Gray
-    Write-Host "• Verify Python 3.8+ is installed and in PATH" -ForegroundColor Gray
-    Write-Host "• Check Windows Event Viewer for detailed errors" -ForegroundColor Gray
+    Write-Host "- Ensure you're running as Administrator" -ForegroundColor Gray
+    Write-Host "- Check internet connection for package downloads" -ForegroundColor Gray
+    Write-Host "- Verify Python 3.8+ is installed and in PATH" -ForegroundColor Gray
+    Write-Host "- Check Windows Event Viewer for detailed errors" -ForegroundColor Gray
     Write-Host ""
     Write-Host "For support, visit: https://github.com/vegardhw/rigbeat/issues" -ForegroundColor Cyan
     
