@@ -54,29 +54,29 @@ function Test-Command {
 function Install-PythonWithWinget {
     Write-Step $script:CurrentStep "Installing Python via winget..."
     Show-Progress "Installing Python" "Downloading and installing Python 3.11"
-    
+
     if (-not (Test-Command "winget")) {
         Write-Error "winget is not available on this system"
         Write-Info "Please install Python manually from: https://www.python.org/downloads/"
         Write-Info "Make sure to check 'Add Python to PATH' during installation"
         throw "winget not available"
     }
-    
+
     try {
         # Install Python 3.11 (stable and well-tested)
         Write-Info "Installing Python 3.11 via winget..."
         $result = winget install Python.Python.3.11 --exact --silent --accept-package-agreements --accept-source-agreements 2>&1
-        
+
         if ($LASTEXITCODE -eq 0) {
             Write-Success "Python installed successfully via winget"
             Write-Info "Refreshing environment variables..."
-            
+
             # Refresh PATH environment variable
             $env:PATH = [System.Environment]::GetEnvironmentVariable("PATH", "Machine") + ";" + [System.Environment]::GetEnvironmentVariable("PATH", "User")
-            
+
             # Wait a moment for installation to complete
             Start-Sleep -Seconds 3
-            
+
             return $true
         } else {
             Write-Warning "winget installation may have had issues: $result"
@@ -92,10 +92,10 @@ function Install-PythonWithWinget {
 # Function to validate Python installation
 function Test-PythonInstallation {
     Write-Info "Checking for Python installation..."
-    
+
     # Try common Python commands
     $pythonCommands = @("python", "python3", "py")
-    
+
     foreach ($cmd in $pythonCommands) {
         if (Test-Command $cmd) {
             try {
@@ -103,7 +103,7 @@ function Test-PythonInstallation {
                 if ($version -match "Python (\d+)\.(\d+)") {
                     $major = [int]$matches[1]
                     $minor = [int]$matches[2]
-                    
+
                     if ($major -eq 3 -and $minor -ge 8) {
                         Write-Success "Found compatible Python: $version"
                         return $cmd
@@ -117,7 +117,7 @@ function Test-PythonInstallation {
             }
         }
     }
-    
+
     return $null
 }
 
@@ -125,23 +125,23 @@ try {
     # Step 1: Check Python installation
     Show-Progress "Checking Prerequisites" "Validating Python installation"
     Write-Step 1 "Checking Python installation..."
-    
+
     if (-not $SkipPythonCheck) {
         $pythonCmd = Test-PythonInstallation
-        
+
         if (-not $pythonCmd) {
             Write-Warning "Python 3.8+ not found"
             Write-Info "Would you like to install Python automatically using winget? (Recommended)"
-            
+
             if ($Quiet) {
                 $installChoice = "Y"
             } else {
                 $installChoice = Read-Host "Install Python via winget? [Y/n]"
             }
-            
+
             if ($installChoice -eq "" -or $installChoice.ToLower() -eq "y") {
                 $installed = Install-PythonWithWinget
-                
+
                 if ($installed) {
                     $pythonCmd = Test-PythonInstallation
                     if (-not $pythonCmd) {
@@ -165,13 +165,13 @@ try {
     } else {
         $pythonCmd = "python"  # Assume python is available when skipping check
     }
-    
+
     # Step 2: Install Python dependencies
     Show-Progress "Installing Dependencies" "Installing required Python packages"
     Write-Step 2 "Installing Python dependencies..."
-    
+
     $packages = @("prometheus-client", "wmi", "pywin32")
-    
+
     if (Test-Path "requirements.txt") {
         Write-Info "Installing from requirements.txt..."
         & $pythonCmd -m pip install -r requirements.txt --upgrade
@@ -179,16 +179,16 @@ try {
         Write-Info "Installing individual packages: $($packages -join ', ')"
         & $pythonCmd -m pip install $packages --upgrade
     }
-    
+
     if ($LASTEXITCODE -ne 0) {
         throw "Failed to install Python dependencies"
     }
     Write-Success "Dependencies installed successfully"
-    
+
     # Step 3: Create service directory
     Show-Progress "Setting up Directories" "Creating Rigbeat directory structure"
     Write-Step 3 "Creating service directory..."
-    
+
     $serviceDir = "C:\ProgramData\Rigbeat"
     if (-not (Test-Path $serviceDir)) {
         New-Item -ItemType Directory -Path $serviceDir -Force | Out-Null
@@ -196,17 +196,17 @@ try {
     } else {
         Write-Info "Directory already exists: $serviceDir"
     }
-    
+
     # Step 4: Copy files
     Show-Progress "Copying Files" "Installing Rigbeat files"
     Write-Step 4 "Copying files to installation directory..."
-    
+
     $filesToCopy = @(
         "hardware_exporter.py",
-        "service_manager.py", 
+        "service_manager.py",
         "test_fans.py"
     )
-    
+
     # Optional files
     $optionalFiles = @(
         "requirements.txt",
@@ -214,7 +214,7 @@ try {
         "prometheus_config.yml",
         "FAN_SUPPORT.md"
     )
-    
+
     foreach ($file in $filesToCopy) {
         if (Test-Path $file) {
             Copy-Item $file $serviceDir -Force
@@ -224,18 +224,18 @@ try {
             throw "Missing required file: $file"
         }
     }
-    
+
     foreach ($file in $optionalFiles) {
         if (Test-Path $file) {
             Copy-Item $file $serviceDir -Force
             Write-Info "Copied optional file: $file"
         }
     }
-    
+
     # Step 5: Install Windows service
     Show-Progress "Installing Service" "Setting up Windows service"
     Write-Step 5 "Installing Windows service..."
-    
+
     Push-Location $serviceDir
     try {
         & $pythonCmd service_manager.py install
@@ -247,11 +247,11 @@ try {
     finally {
         Pop-Location
     }
-    
+
     # Step 6: Validate installation
     Show-Progress "Validating Installation" "Testing installation components"
     Write-Step 6 "Validating installation..."
-    
+
     Push-Location $serviceDir
     try {
         # Test hardware exporter
@@ -261,7 +261,7 @@ try {
         } else {
             Write-Warning "Hardware exporter validation failed"
         }
-        
+
         # Check if service is registered
         $service = Get-Service -Name "Rigbeat" -ErrorAction SilentlyContinue
         if ($service) {
@@ -273,24 +273,24 @@ try {
     finally {
         Pop-Location
     }
-    
+
     # Step 7: Complete
     Show-Progress "Installation Complete" "Rigbeat installed successfully"
     Write-Step 7 "Installation complete!"
-    
+
     Write-Progress -Activity "Installation" -Completed
-    
+
     # Success message
     Write-Host ""
     Write-Host "============================================" -ForegroundColor Green
-    Write-Host "        Installation Successful! 🎉        " -ForegroundColor Green  
+    Write-Host "        Installation Successful!            " -ForegroundColor Green
     Write-Host "============================================" -ForegroundColor Green
     Write-Host ""
-    
+
     # Next steps
     Write-Host "Next Steps:" -ForegroundColor Yellow
     Write-Host ""
-    
+
     Write-Host "1. Install LibreHardwareMonitor:" -ForegroundColor White
     Write-Host "   Download: " -NoNewline -ForegroundColor White
     Write-Host "https://github.com/LibreHardwareMonitor/LibreHardwareMonitor/releases" -ForegroundColor Cyan
@@ -298,47 +298,47 @@ try {
     Write-Host "   ✓ Enable 'WMI' in Options (required!)" -ForegroundColor Green
     Write-Host "   ✓ Enable 'Run on Windows Startup' (optional)" -ForegroundColor Green
     Write-Host ""
-    
+
     Write-Host "2. Test Hardware Detection (Optional but recommended):" -ForegroundColor White
     Write-Host "   cd `"$serviceDir`"" -ForegroundColor Gray
     Write-Host "   python test_fans.py" -ForegroundColor Gray
     Write-Host ""
-    
+
     Write-Host "3. Start Rigbeat Service:" -ForegroundColor White
     Write-Host "   net start Rigbeat" -ForegroundColor Gray
     Write-Host ""
-    
+
     Write-Host "4. Verify Installation:" -ForegroundColor White
     Write-Host "   Visit: " -NoNewline -ForegroundColor White
     Write-Host "http://localhost:9182/metrics" -ForegroundColor Cyan
     Write-Host ""
-    
+
     Write-Host "Advanced Options:" -ForegroundColor Yellow
-    Write-Host "• Debug logging: python hardware_exporter.py --debug" -ForegroundColor Gray
-    Write-Host "• Custom port: python hardware_exporter.py --port 9183" -ForegroundColor Gray
-    Write-Host "• Service logs: $serviceDir\service.log" -ForegroundColor Gray
+    Write-Host "- Debug logging: python hardware_exporter.py --debug" -ForegroundColor Gray
+    Write-Host "- Custom port: python hardware_exporter.py --port 9183" -ForegroundColor Gray
+    Write-Host "- Service logs: $serviceDir\service.log" -ForegroundColor Gray
     Write-Host ""
-    
+
     Write-Host "Documentation: " -NoNewline -ForegroundColor White
-    Write-Host "https://your-username.github.io/rigbeat/" -ForegroundColor Cyan
-    Write-Host "GitHub: " -NoNewline -ForegroundColor White  
+    Write-Host "https://vegardhw.github.io/rigbeat/" -ForegroundColor Cyan
+    Write-Host "GitHub: " -NoNewline -ForegroundColor White
     Write-Host "https://github.com/vegardhw/rigbeat" -ForegroundColor Cyan
     Write-Host ""
-    
+
     Write-Success "Installation completed successfully!"
 }
 catch {
     Write-Error "Installation failed: $_"
     Write-Host ""
     Write-Host "Troubleshooting:" -ForegroundColor Yellow
-    Write-Host "• Ensure you're running as Administrator" -ForegroundColor Gray
-    Write-Host "• Check internet connection for package downloads" -ForegroundColor Gray
-    Write-Host "• Verify Python 3.8+ is installed and in PATH" -ForegroundColor Gray
-    Write-Host "• Check Windows Event Viewer for detailed errors" -ForegroundColor Gray
+    Write-Host "- Ensure you're running as Administrator" -ForegroundColor Gray
+    Write-Host "- Check internet connection for package downloads" -ForegroundColor Gray
+    Write-Host "- Verify Python 3.8+ is installed and in PATH" -ForegroundColor Gray
+    Write-Host "- Check Windows Event Viewer for detailed errors" -ForegroundColor Gray
     Write-Host ""
     Write-Host "For support, visit: https://github.com/vegardhw/rigbeat/issues" -ForegroundColor Cyan
-    
-    if (-not $Quiet) { 
+
+    if (-not $Quiet) {
         Read-Host "Press Enter to exit"
     }
     exit 1

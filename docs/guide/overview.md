@@ -14,14 +14,29 @@ graph TD
     F[Hardware Sensors] --> A
     G[Fan Controllers] --> A
     H[Temperature Sensors] --> A
+
+    style A fill:#e1f5fe
+    style C fill:#f3e5f5  
+    style D fill:#fff3e0
+    style E fill:#e8f5e8
 ```
+
+::: details Text-based Architecture (if diagram doesn't render)
+**Hardware** → **LibreHardwareMonitor** → **WMI** → **Rigbeat Service** → **Prometheus** → **Grafana**
+
+- Hardware Sensors feed into LibreHardwareMonitor
+- LibreHardwareMonitor exposes data via WMI Interface
+- Rigbeat Service collects and processes the data  
+- Prometheus Metrics are exported on port 9182
+- Grafana Dashboard provides visualization
+:::
 
 ## Architecture
 
 ### Data Flow
 1. **Hardware Sensors** → LibreHardwareMonitor reads CPU/GPU temps, fan speeds
 2. **WMI Interface** → Exposes sensor data via Windows Management Instrumentation
-3. **Rigbeat Service** → Collects and processes sensor data every 2 seconds
+3. **Rigbeat Service** → Collects and processes sensor data every 15 seconds (configurable)
 4. **Prometheus Metrics** → Exports standardized metrics on port 9182
 5. **Grafana Dashboard** → Visualizes metrics with beautiful graphs and alerts
 
@@ -133,6 +148,6 @@ graph TD
 Ready to start monitoring? Follow our step-by-step guides:
 
 1. **[Installation →](/getting-started/installation)** - Get Rigbeat installed
-2. **[Hardware Setup →](/guide/hardware-setup)** - Configure LibreHardwareMonitor
-3. **[Grafana Dashboard →](/guide/grafana)** - Set up beautiful visualizations
-4. **[Best Practices →](/guide/best-practices)** - Optimize your monitoring setup
+2. **[Fan Detection →](/guide/fan-detection)** - Understand how fans are categorized
+3. **[Prometheus & Grafana →](/guide/prometheus-grafana)** - Set up metrics and dashboards
+4. **[Troubleshooting →](/troubleshooting/common-issues)** - Resolve common issues

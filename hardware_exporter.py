@@ -261,7 +261,7 @@ class HardwareMonitor:
 def main():
     parser = argparse.ArgumentParser(description='Rigbeat - Prometheus Exporter')
     parser.add_argument('--port', type=int, default=9182, help='Port to expose metrics (default: 9182)')
-    parser.add_argument('--interval', type=int, default=2, help='Update interval in seconds (default: 2)')
+    parser.add_argument('--interval', type=int, default=2, help='Update interval in seconds (default: 2, use 2-5 for real-time gaming or 10+ for general monitoring)')
     parser.add_argument('--logfile', type=str, help='Log file path (e.g., rigbeat.log)')
     parser.add_argument('--debug', action='store_true', help='Enable debug logging')
     args = parser.parse_args()
