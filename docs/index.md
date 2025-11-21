@@ -47,6 +47,11 @@ Perfect for:
 - 🏠 **Home Labs** - Keep tabs on your hardware health
 - 🔧 **System Builders** - Validate cooling performance
 
+## Dashboard Preview
+
+![Dashboard Preview](images/dashboard-preview.png)
+*📱 Mobile-optimized Grafana dashboard showing real-time hardware monitoring*
+
 ## Quick Example
 
 ```prometheus
