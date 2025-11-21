@@ -30,7 +30,7 @@ function Show-Progress {
 # Header
 Clear-Host
 Write-Host "============================================" -ForegroundColor Blue
-Write-Host "        Rigbeat - Installation v0.1.1      " -ForegroundColor Blue
+Write-Host "        Rigbeat - Installation v0.1.3      " -ForegroundColor Blue
 Write-Host "    Windows Hardware Monitoring System     " -ForegroundColor Blue
 Write-Host "============================================" -ForegroundColor Blue
 Write-Host ""
@@ -53,7 +53,7 @@ function Test-Command {
 # Function to install Python via winget
 function Install-PythonWithWinget {
     Write-Step $script:CurrentStep "Installing Python via winget..."
-    Show-Progress "Installing Python" "Downloading and installing Python 3.11"
+    Show-Progress "Installing Python" "Downloading and installing Python 3.14"
 
     if (-not (Test-Command "winget")) {
         Write-Error "winget is not available on this system"
@@ -63,9 +63,9 @@ function Install-PythonWithWinget {
     }
 
     try {
-        # Install Python 3.11 (stable and well-tested)
-        Write-Info "Installing Python 3.11 via winget..."
-        $result = winget install Python.Python.3.11 --exact --silent --accept-package-agreements --accept-source-agreements 2>&1
+        # Install Python 3.14 (stable and well-tested)
+        Write-Info "Installing Python 3.14 via winget..."
+        $result = winget install Python.Python.3.14 --exact --silent --accept-package-agreements --accept-source-agreements 2>&1
 
         if ($LASTEXITCODE -eq 0) {
             Write-Success "Python installed successfully via winget"

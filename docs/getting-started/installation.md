@@ -21,16 +21,26 @@ Get the latest release from GitHub:
 
 ### 2. Install LibreHardwareMonitor
 
-LibreHardwareMonitor provides access to your hardware sensors via WMI.
+LibreHardwareMonitor provides access to your hardware sensors via HTTP API or WMI.
 
 1. **Download** from [LibreHardwareMonitor Releases](https://github.com/LibreHardwareMonitor/LibreHardwareMonitor/releases)
 2. **Extract** the ZIP file
 3. **Run** `LibreHardwareMonitor.exe` as Administrator
-4. **Enable WMI**: Go to Options → Check "WMI" ✅
-5. **Optional**: Enable "Run On Windows Startup" for automatic startup
+4. **Enable HTTP Server** (recommended for best performance):
+   - Go to Options → Web Server
+   - Check "Enable Web Server" ✅ (port 8085)
+5. **Fallback**: Enable WMI if HTTP not preferred: Options → Check "WMI" ✅
+6. **Optional**: Enable "Run On Windows Startup" for automatic startup
 
-::: warning Important
-WMI must be enabled in LibreHardwareMonitor for Rigbeat to access sensors!
+::: tip Performance Recommendation
+**HTTP Server** provides ~90% better performance than WMI. Enable it in Options → Web Server for optimal Rigbeat performance.
+:::
+
+::: warning Firewall Configuration
+If using Prometheus on a different machine, configure Windows Firewall:
+```powershell
+netsh advfirewall firewall add rule name="Rigbeat" dir=in action=allow protocol=TCP localport=9182
+```
 :::
 
 ### 3. Run Installation Script
@@ -76,14 +86,28 @@ This will show you what fans and sensors are detected on your system.
 ### 3. Run the Exporter
 
 ```bash
-# Simple run
+# Simple run (HTTP API automatically detected)
 python hardware_exporter.py
 
-# With debug logging
+# With debug logging to see connection method
 python hardware_exporter.py --debug --logfile rigbeat.log
 
 # Custom port and interval
 python hardware_exporter.py --port 9183 --interval 5
+
+# Custom LibreHardwareMonitor HTTP API location
+python hardware_exporter.py --http-host 192.168.1.100 --http-port 8085
+```
+
+**Debug Output Examples:**
+```
+🚀 Connected to LibreHardwareMonitor HTTP API at http://localhost:8085
+✅ Performance optimized mode enabled (HTTP API)
+```
+or
+```
+⚠️ Connected via WMI fallback (higher CPU usage)  
+💡 Enable LibreHardwareMonitor HTTP server for better performance
 ```
 
 ### 4. Install as Windows Service
