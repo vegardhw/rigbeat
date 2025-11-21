@@ -10,11 +10,10 @@
 </div>
 
 **Prometheus exporter for Windows hardware monitoring** - Track your gaming PC's temperatures, fan speeds, and performance with beautiful Grafana dashboards.
+> 🎯 **Perfect for gaming PCs, workstations, and home labs — especially easy if you already have Prometheus and Grafana running. Docker deployment also available.**
 
-> 🎯 **Perfect for gaming PCs, workstations, and home labs**
-
-<!-- DASHBOARD SCREENSHOT PLACEHOLDER - Add your Grafana dashboard screenshot here -->
-![Dashboard Preview](https://via.placeholder.com/800x400?text=🎮+Gaming+PC+Dashboard+Screenshot+Coming+Soon)
+<!-- DASHBOARD SCREENSHOT -->
+![Dashboard Preview](docs/images/dashboard-preview.png)
 *📱 Mobile-optimized dashboard showing CPU/GPU temps, fan speeds, and system performance*
 
 ## ✨ Key Features
@@ -100,8 +99,7 @@ rigbeat_gpu_load_percent{gpu="nvidia_geforce_rtx_4080",type="core"} 85.0
 ```
 
 ### Mobile-Optimized Dashboard
-<!-- DASHBOARD FEATURES SCREENSHOT PLACEHOLDER -->
-![Dashboard Features](https://via.placeholder.com/600x300?text=📊+Temperature+Gauges+%7C+Fan+RPM+%7C+Performance+Charts)
+![Dashboard Features](docs/images/dashboard-features.png)
 *🎨 Beautiful temperature gauges, fan monitoring, and performance tracking*
 
 ## 💡 Perfect For
