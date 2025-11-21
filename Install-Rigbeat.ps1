@@ -10,10 +10,10 @@ param(
 )
 
 # Color functions for better user experience
-function Write-Success { param($Message) Write-Host "✓ $Message" -ForegroundColor Green }
-function Write-Info { param($Message) Write-Host "ℹ $Message" -ForegroundColor Cyan }
-function Write-Warning { param($Message) Write-Host "⚠ $Message" -ForegroundColor Yellow }
-function Write-Error { param($Message) Write-Host "✗ $Message" -ForegroundColor Red }
+function Write-Success { param($Message) Write-Host "$Message" -ForegroundColor Green }
+function Write-Info { param($Message) Write-Host "$Message" -ForegroundColor Cyan }
+function Write-Warning { param($Message) Write-Host "$Message" -ForegroundColor Yellow }
+function Write-Error { param($Message) Write-Host "$Message" -ForegroundColor Red }
 function Write-Step { param($Step, $Message) Write-Host "[$Step] $Message" -ForegroundColor Magenta }
 
 # Progress tracking
@@ -294,9 +294,9 @@ try {
     Write-Host "1. Install LibreHardwareMonitor:" -ForegroundColor White
     Write-Host "   Download: " -NoNewline -ForegroundColor White
     Write-Host "https://github.com/LibreHardwareMonitor/LibreHardwareMonitor/releases" -ForegroundColor Cyan
-    Write-Host "   ✓ Run as Administrator" -ForegroundColor Green
-    Write-Host "   ✓ Enable 'WMI' in Options (required!)" -ForegroundColor Green
-    Write-Host "   ✓ Enable 'Run on Windows Startup' (optional)" -ForegroundColor Green
+    Write-Host "   Run as Administrator" -ForegroundColor Green
+    Write-Host "   Enable 'WMI' in Options (required!)" -ForegroundColor Green
+    Write-Host "   Enable 'Run on Windows Startup' (optional)" -ForegroundColor Green
     Write-Host ""
 
     Write-Host "2. Test Hardware Detection (Optional but recommended):" -ForegroundColor White
@@ -331,7 +331,7 @@ catch {
     Write-Error "Installation failed: $_"
     Write-Host ""
     Write-Host "Troubleshooting:" -ForegroundColor Yellow
-    Write-Host "- Ensure you're running as Administrator" -ForegroundColor Gray
+    Write-Host "- Ensure you are running as Administrator" -ForegroundColor Gray
     Write-Host "- Check internet connection for package downloads" -ForegroundColor Gray
     Write-Host "- Verify Python 3.8+ is installed and in PATH" -ForegroundColor Gray
     Write-Host "- Check Windows Event Viewer for detailed errors" -ForegroundColor Gray

@@ -5,7 +5,7 @@ Get Rigbeat up and running on your Windows system in just a few minutes.
 ## Prerequisites
 
 - **Windows 10/11** (64-bit)
-- **Python 3.8+** 
+- **Python 3.8+**
 - **Administrator rights** (required for hardware sensor access)
 
 ## Quick Install (Recommended)
@@ -104,7 +104,7 @@ net query Rigbeat
 The Windows service provides:
 
 - **🛡️ Robust Startup**: Starts successfully even without LibreHardwareMonitor
-- **☁️ Demo Mode**: Runs on VMs/test systems for deployment validation  
+- **☁️ Demo Mode**: Runs on VMs/test systems for deployment validation
 - **🔧 Proper COM Initialization**: Fixed WMI access issues in service context
 - **📝 Enhanced Logging**: Logs to `C:\ProgramData\Rigbeat\service.log`
 - **🔄 Auto-Detection**: Switches to full monitoring when hardware becomes available

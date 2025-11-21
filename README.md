@@ -5,6 +5,10 @@
 [![Prometheus](https://img.shields.io/badge/Prometheus-compatible-orange.svg)](https://prometheus.io/)
 [![Documentation](https://img.shields.io/badge/docs-VitePress-blue.svg)](https://vegardhw.github.io/rigbeat/)
 
+<div align="center">
+    <img src="docs/logo.svg" alt="Rigbeat Logo" width="200"/>
+</div>
+
 **Prometheus exporter for Windows hardware monitoring** - Track your gaming PC's temperatures, fan speeds, and performance with beautiful Grafana dashboards.
 
 > 🎯 **Perfect for gaming PCs, workstations, and home labs**
@@ -53,7 +57,7 @@ Import the included Grafana dashboard for beautiful visualizations:
 <!-- GRAFANA DASHBOARD INSTRUCTIONS PLACEHOLDER -->
 *📊 Complete Grafana setup instructions and dashboard gallery in the documentation*
 
-## 📖 Documentation
+## 📖 Docs
 
 **[📚 Full Documentation →](https://vegardhw.github.io/rigbeat/)**
 
@@ -71,8 +75,6 @@ Import the included Grafana dashboard for beautiful visualizations:
 | **🎮 Gaming Focused** | Designed specifically for Windows gaming hardware |
 | **🧠 Smart Detection** | Automatically identifies and categorizes your fans |
 | **📱 Mobile First** | Dashboard works beautifully on your phone/tablet |
-| **🛡️ Production Ready** | Robust service with proper error handling |
-| **☁️ VM Compatible** | Test deployment on virtual machines with demo mode |
 
 ## 📊 What You Get
 
@@ -80,7 +82,7 @@ Import the included Grafana dashboard for beautiful visualizations:
 ```prometheus
 # Intelligent fan categorization
 rigbeat_fan_speed_rpm{fan="gpu_fan_1",type="gpu"} 1850.0      # Graphics card
-rigbeat_fan_speed_rpm{fan="cpu_fan",type="cpu"} 1450.0        # CPU cooler  
+rigbeat_fan_speed_rpm{fan="cpu_fan",type="cpu"} 1450.0        # CPU cooler
 rigbeat_fan_speed_rpm{fan="chassis_fan_1",type="chassis"} 1200.0  # Case fans
 
 # Comprehensive temperature monitoring
@@ -105,7 +107,7 @@ rigbeat_gpu_load_percent{gpu="nvidia_geforce_rtx_4080",type="core"} 85.0
 ## 💡 Perfect For
 
 - **🎮 Gaming PCs** - Monitor thermals during intense sessions
-- **💼 Workstations** - Track performance during heavy workloads  
+- **💼 Workstations** - Track performance during heavy workloads
 - **🏠 Home Labs** - Keep tabs on 24/7 systems
 - **🔧 System Builders** - Validate cooling performance
 

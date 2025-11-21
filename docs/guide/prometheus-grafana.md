@@ -12,7 +12,7 @@ rigbeat_fan_speed_rpm{fan="LABEL", type="TYPE"} VALUE
 
 Where:
 - **`fan`**: Unique identifier for the specific fan
-- **`type`**: Category (`gpu`, `cpu`, `chassis`, `other`)  
+- **`type`**: Category (`gpu`, `cpu`, `chassis`, `other`)
 - **`VALUE`**: Current RPM reading
 
 ## Common Prometheus Queries
@@ -74,7 +74,7 @@ Create a stat panel with threshold-based colors:
       "thresholds": {
         "steps": [
           {"color": "red", "value": 0},      // Stopped - Critical
-          {"color": "yellow", "value": 500}, // Slow - Warning  
+          {"color": "yellow", "value": 500}, // Slow - Warning
           {"color": "green", "value": 1000}, // Normal - Good
           {"color": "blue", "value": 2000}   // High - Gaming
         ]
@@ -93,7 +93,7 @@ For trend monitoring, create a time series panel:
 
 **Panel Settings**:
 - Group by: `{{type}} - {{fan}}`
-- Y-axis label: "RPM"  
+- Y-axis label: "RPM"
 - Connect null values: true
 
 ### Fan Status Overview
@@ -134,7 +134,7 @@ groups:
           description: "{{ $labels.type }} fan {{ $labels.fan }} RPM: {{ $value }}"
 
       # Any fan running slow
-      - alert: FanRunningLow  
+      - alert: FanRunningLow
         expr: rigbeat_fan_speed_rpm < 500
         for: 3m
         labels:
@@ -172,7 +172,7 @@ abs(
 # Alert if intake/exhaust fans are significantly unbalanced
 abs(
   avg(rigbeat_fan_speed_rpm{fan=~"chassis_fan_[12]"}) -
-  avg(rigbeat_fan_speed_rpm{fan=~"chassis_fan_[34]"})  
+  avg(rigbeat_fan_speed_rpm{fan=~"chassis_fan_[34]"})
 ) > 300
 ```
 
@@ -182,7 +182,7 @@ abs(
 Organize panels by fan purpose rather than location:
 
 - **Critical Cooling**: GPU + CPU fans
-- **Airflow Management**: Chassis fans  
+- **Airflow Management**: Chassis fans
 - **Custom Cooling**: AIO pumps, etc.
 
 ### 2. Color Coding by Type
@@ -209,7 +209,7 @@ Combine fan metrics with related data:
 rigbeat_fan_speed_rpm{type="gpu"}
 rigbeat_gpu_temperature_celsius
 
-# System load context  
+# System load context
 rigbeat_fan_speed_rpm{type="cpu"}
 rigbeat_cpu_load_percent{core="total"}
 ```
@@ -243,9 +243,9 @@ rigbeat_fan_speed_rpm{type="gpu"} / rigbeat_gpu_temperature_celsius
 ```
 
 ### Power vs Cooling Balance
-```promql  
+```promql
 # High fan speed with low load might indicate dust buildup
-rigbeat_fan_speed_rpm{type="cpu"} 
+rigbeat_fan_speed_rpm{type="cpu"}
 and
 rigbeat_cpu_load_percent{core="total"} < 20
 ```

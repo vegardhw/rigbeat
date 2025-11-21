@@ -31,7 +31,7 @@ cpu_power = Gauge('rigbeat_cpu_power_watts', 'CPU power consumption in Watts', [
 
 gpu_temp = Gauge('rigbeat_gpu_temperature_celsius', 'GPU temperature in Celsius', ['gpu'])
 gpu_load = Gauge('rigbeat_gpu_load_percent', 'GPU load percentage', ['gpu', 'type'])
-gpu_memory = Gauge('rigbeat_gpu_memory_used_mb', 'GPU memory used in MB', ['gpu'])
+gpu_memory = Gauge('rigbeat_gpu_memory_used_gb', 'GPU memory used in GB', ['gpu'])
 gpu_clock = Gauge('rigbeat_gpu_clock_mhz', 'GPU clock speed in MHz', ['gpu', 'type'])
 gpu_power = Gauge('rigbeat_gpu_power_watts', 'GPU power consumption in Watts', ['gpu'])
 
@@ -156,7 +156,9 @@ class HardwareMonitor:
                 # GPU Memory
                 elif sensor_type == "SmallData" and "Memory Used" in sensor_name and any(x in parent.lower() for x in ["/gpu", "nvidia", "amd", "radeon"]):
                     gpu_name = parent.split("/")[-1] if "/" in parent else "gpu0"
-                    gpu_memory.labels(gpu=gpu_name).set(value)
+                    # Convert MB to GB with proper decimal precision
+                    memory_gb = round(value / 1024, 2) if value > 100 else value  # Assume MB if > 100, else already GB
+                    gpu_memory.labels(gpu=gpu_name).set(memory_gb)
 
                 # GPU Clock
                 elif sensor_type == "Clock" and any(x in parent.lower() for x in ["/gpu", "nvidia", "amd", "radeon"]):
