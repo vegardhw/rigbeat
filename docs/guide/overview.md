@@ -143,6 +143,12 @@ graph TD
 - **Remote visibility** into hardware health
 - **Historical analysis** for upgrade planning
 
+### 🏢 Multi-User & Family Setups
+- **Multiple PC monitoring** through Prometheus labels
+- **User-specific dashboards** and alerts
+- **Centralized monitoring** of all household systems
+- **Federation support** for large deployments
+
 ### 🔧 System Building
 - **Cooling validation** for new builds
 - **Fan curve testing** and optimization
