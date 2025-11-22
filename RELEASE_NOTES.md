@@ -1,224 +1,174 @@
-# Release v0.1.2
+# Release v0.1.3
 
-## ⚡ New Features
+## 🚀 Major Performance Improvements
 
-### 🔋 CPU & GPU Power Monitoring
-- **CPU Power Consumption**: Track CPU package power draw in real-time
-  - Metric: `rigbeat_cpu_power_watts{sensor="CPU Package"}`
-  - Shows total processor power consumption in Watts
-  - Essential for performance tuning and efficiency analysis
+### **LibreHardwareMonitor HTTP API Integration**
+- **~90% performance improvement** - eliminated 7-8% CPU overhead from WMI polling
+- **HTTP API preferred** with automatic WMI fallback for compatibility
+- **Native JSON interface** - cleaner and more efficient than WMI COM objects
+- **Enhanced debug logging** to verify which connection method is active
 
-- **GPU Power Consumption**: Monitor graphics card power usage
-  - Metric: `rigbeat_gpu_power_watts{gpu="gpu_name"}`
-  - Real-time GPU power draw monitoring
-  - Critical for gaming performance optimization and power limit analysis
-
-### 📊 Enhanced Monitoring Capabilities
-- **Performance per Watt**: Calculate efficiency ratios for both CPU and GPU
-- **Power Trend Analysis**: Track power consumption patterns during different workloads
-- **Thermal Correlation**: Analyze relationship between power draw and temperatures
-- **Gaming Optimization**: Monitor power limits during intensive gaming sessions
-
-## 🎯 Why Power Monitoring Matters
-
-### For Gaming PCs
-- **Power Limit Detection**: Know when your GPU is hitting power limits
-- **Efficiency Tuning**: Optimize performance per watt for better acoustics
-- **PSU Sizing**: Validate your power supply is adequate for your system
-- **Undervolting Validation**: Measure power savings from undervolting
-
-### For Workstations
-- **Workload Analysis**: Understand power consumption of different tasks
-- **Cost Optimization**: Track power costs for always-on systems
-- **Thermal Management**: Correlate power spikes with temperature increases
-- **Hardware Validation**: Ensure components operate within specifications
-
-### for System Builders
-- **Component Testing**: Validate power consumption against specifications
-- **Build Optimization**: Balance performance and power efficiency
-- **Client Validation**: Prove power efficiency claims to customers
-
-## 🔧 Technical Implementation
-
-### Power Sensor Detection
-The exporter now detects LibreHardwareMonitor's "Power" sensor type and specifically targets "Package" sensors:
-
-```python
-# CPU Package Power (from CPU > Powers > Package)
-rigbeat_cpu_power_watts{sensor="CPU Package"} 65.2
-
-# GPU Package Power (from GPU > Powers > GPU Package)
-rigbeat_gpu_power_watts{gpu="nvidia_geforce_rtx_4080"} 285.7
-```
-
-### Sensor Compatibility
-- **CPU**: Works with Intel and AMD processors that expose package power
-- **GPU**: Compatible with NVIDIA and AMD graphics cards
-- **Requirements**: LibreHardwareMonitor must detect power sensors (hardware dependent)
-
-## 📊 New Dashboard Panels
-
-### Power Consumption Gauges
-```promql
-# Current CPU power draw
-rigbeat_cpu_power_watts
-
-# Current GPU power draw
-rigbeat_gpu_power_watts
-```
-
-### Efficiency Calculations
-```promql
-# CPU Performance per Watt
-rigbeat_cpu_load_percent{core="total"} / rigbeat_cpu_power_watts
-
-# GPU Performance per Watt
-rigbeat_gpu_load_percent{type="core"} / rigbeat_gpu_power_watts
-```
-
-### Power vs Temperature Correlation
-```promql
-# Power/Temperature relationship visualization
-rigbeat_cpu_power_watts and rigbeat_cpu_temperature_celsius
-rigbeat_gpu_power_watts and rigbeat_gpu_temperature_celsius
-```
-
-## ⚙️ Configuration & Setup
-
-### No Configuration Required
-Power monitoring works automatically when:
-1. LibreHardwareMonitor is running with WMI enabled
-2. Hardware supports power sensors (most modern CPUs/GPUs)
-3. Rigbeat service detects the "Package" power sensors
-
-### Verification
-Check power metrics are working:
+### **Smart Connection Management**
 ```bash
-# Visit metrics endpoint
-curl http://localhost:9182/metrics | grep power
+# Performance comparison:
+# WMI (old):  7-8% CPU spikes every 2-15 seconds
+# HTTP (new): <1% CPU usage for sensor collection
 
-# Expected output:
-# rigbeat_cpu_power_watts{sensor="CPU Package"} 45.2
-# rigbeat_gpu_power_watts{gpu="nvidia_geforce_rtx_4080"} 180.5
-```
-
-## 🚀 Upgrade Instructions
-
-### From v0.1.1
-
-```bash
-# Stop the service
-net stop Rigbeat
-
-# Download v0.1.2 release files
-# Extract and copy to C:\ProgramData\Rigbeat\
-
-# Restart service (no reinstall needed)
-net start Rigbeat
-
-# Verify power metrics are available
-curl http://localhost:9182/metrics | findstr power
-```
-
-### For Development/Testing
-```bash
-# Update files in development directory
-git pull origin main
-
-# Test power detection
+# Enable debug mode to see connection method:
 python hardware_exporter.py --debug
-
-# Check for power sensor detection in logs
 ```
 
-## 📈 Updated Grafana Dashboard
+**Setup Requirements:**
+- **LibreHardwareMonitor HTTP server** enabled in Options → Web Server (port 8085)
+- **Automatic fallback** to WMI if HTTP unavailable
+- **Windows Firewall** configuration for Prometheus scraping
 
-The included `grafana_dashboard.json` now features:
+### **Network Configuration**
 
-### New Panels
-- **📊 Power Consumption Overview**: Real-time CPU and GPU power draw
-- **⚡ Efficiency Metrics**: Performance per Watt calculations
-- **📈 Power History**: Historical power consumption trends
-- **🔗 Power vs Load Correlation**: Understand power scaling with workload
+**Windows Firewall Setup** (required for Prometheus scraping):
+```powershell
+# Allow Rigbeat port through Windows Firewall
+netsh advfirewall firewall add rule name="Rigbeat" dir=in action=allow protocol=TCP localport=9182
 
-### Enhanced Mobile Experience
-- Power gauges optimized for tablet/phone viewing
-- Quick-glance efficiency indicators
-- Color-coded power limit warnings
-
-## 🎮 Gaming Use Cases
-
-### Real-Time Power Monitoring
-Monitor power consumption while gaming to:
-- Detect GPU power limit throttling
-- Optimize settings for efficiency vs performance
-- Validate cooling adequacy under load
-- Track power consumption across different games
-
-### Example Gaming Dashboard View
-```
-┌─────────────────────┬─────────────────────┐
-│ 🔥 CPU: 65°C | 45W  │ 🎮 GPU: 72°C | 280W │
-├─────────────────────┴─────────────────────┤
-│ ⚡ Total System Power: ~325W              │
-│ 📊 Efficiency: 2.1 FPS/W                  │
-│ 🚨 GPU Power Limit: Not Reached           │
-└─────────────────────────────────────────────┘
+# For custom ports (replace XXXX with your port)
+netsh advfirewall firewall add rule name="Rigbeat-Custom" dir=in action=allow protocol=TCP localport=XXXX
 ```
 
-## ⚠️ Hardware Requirements
+**LibreHardwareMonitor HTTP Server Setup:**
+1. Open LibreHardwareMonitor
+2. Go to Options → Web Server
+3. Check "Enable Web Server" (port 8085)
+4. Rigbeat will automatically detect and use HTTP API
 
-### Power Sensor Support
-- **CPU**: Modern Intel (8th gen+) and AMD (Ryzen+) processors
-- **GPU**: Most NVIDIA (GTX 10 series+) and AMD (RX 400+) graphics cards
-- **Motherboard**: Must expose power sensors via hardware monitoring
+## 🏢 Multi-User & Multi-PC Support
 
-### Troubleshooting
-If power metrics don't appear:
-1. Verify LibreHardwareMonitor shows "Powers" section for CPU/GPU
-2. Check hardware monitoring is enabled in BIOS/UEFI
-3. Ensure latest chipset and GPU drivers installed
-4. Some OEM systems may have limited sensor exposure
+### **Enhanced Prometheus Configuration**
+- **Multi-system monitoring** through improved Prometheus labeling
+- **User-specific identification** with hostname, user, and location labels
+- **Federation support** for large deployments with multiple Prometheus instances
+- **Flexible deployment** - same Rigbeat codebase across all systems
 
-## 📝 Complete Changelog
+### **Family & Team-Friendly Setup**
+```yaml
+# Example: Monitor multiple PCs with user identification
+- job_name: 'rigbeat-gaming-pc'
+  static_configs:
+    - targets: ['192.168.1.10:9182']
+      labels:
+        instance: 'gaming-pc-main'
+        user: 'primary'
+        location: 'office'
+        hostname: 'GAMING-DESKTOP'
+```
 
-### Added
-- CPU power consumption monitoring (`rigbeat_cpu_power_watts`)
-- GPU power consumption monitoring (`rigbeat_gpu_power_watts`)
-- Power sensor detection for "Package" type sensors
-- Enhanced documentation with power monitoring examples
+### **Smart Multi-System Queries**
+```promql
+# Filter by user
+rigbeat_cpu_temperature_celsius{user="primary"}
 
-### Improved
-- Hardware monitoring capabilities now include power management
-- Better correlation between thermal and power metrics
-- Enhanced debugging output includes power sensor detection
+# Compare systems
+rigbeat_gpu_temperature_celsius{instance=~"gaming.*|workstation.*"}
 
-### Technical
-- Added power sensor type detection in `update_metrics()`
-- New Prometheus gauge metrics for CPU and GPU power
-- Updated metric documentation and examples
+# Family dashboard
+rigbeat_fan_speed_rpm{location="office"}
+```
 
-## 🎯 What's Next (v0.1.3+)
+## 🎨 Updated Grafana Dashboard v2.0
 
-### Planned Power Features
-- **Individual GPU Power Rails**: 8-pin connector power monitoring
-- **CPU Core Power**: Per-core power consumption (if supported)
-- **Memory Power**: RAM power consumption monitoring
-- **Power Alerts**: Configurable alerts for power limit scenarios
+### **New Features**
+- **Multi-system support** with hostname selector variable
+- **User-based filtering** for family/team environments
+- **Enhanced mobile optimization** for better tablet/phone experience
+- **Improved layout** with better space utilization
 
-### Enhanced Analytics
-- **Power Efficiency Trends**: Long-term efficiency analysis
-- **Cost Calculation**: Electricity cost estimation based on usage
-- **Comparative Analysis**: Power consumption vs other systems
+### **Dashboard Improvements**
+- ✅ **System selector dropdown** - switch between monitored PCs
+- ✅ **User identification** in panel titles and legends
+- ✅ **Location-based grouping** for organized monitoring
+- ✅ **Responsive design** enhancements for all screen sizes
 
----
+## 📚 Documentation Updates
 
-## 💬 Support & Feedback
+### **New Multi-User Guide**
+- **Comprehensive setup instructions** for multiple PC monitoring
+- **Prometheus configuration examples** for different scenarios
+- **Grafana panel configurations** for multi-system dashboards
+- **Advanced alerting rules** with user/system context
 
-Power monitoring is hardware-dependent. If you experience issues:
+## 🔧 Configuration Enhancements
 
-- 🐛 **Report Issues**: [GitHub Issues](https://github.com/vegardhw/rigbeat/issues)
-- 💡 **Feature Requests**: [GitHub Discussions](https://github.com/vegardhw/rigbeat/discussions)
-- 📖 **Documentation**: [https://vegardhw.github.io/rigbeat/](https://vegardhw.github.io/rigbeat/)
+### **Updated prometheus.yml**
+- **Enhanced external_labels** with datacenter and replica identification
+- **Multi-instance examples** showing gaming PC, workstation, and HTPC setups
+- **Smart alerting rules** with user and system context
+- **Federation-ready configuration** for scalable deployments
 
-**Power monitoring makes Rigbeat even more valuable for system optimization and efficiency analysis!** ⚡
+## 🎯 Use Cases
+
+### **Family Households**
+- Monitor kids' gaming PC, parents' workstations, and family HTPC
+- User-specific alerts and maintenance notifications
+- Centralized view of all household systems
+
+### **Small Teams/Offices**
+- Development team workstation monitoring
+- Build server and gaming rig oversight
+- Performance comparison across team members' systems
+
+### **Home Lab Enthusiasts**
+- Multi-server monitoring with Rigbeat on each Windows system
+- Cluster performance tracking and optimization
+- Historical analysis across multiple systems
+
+## 📦 Assets
+
+- **`rigbeat-v0.1.3-win64.zip`** - Complete package with multi-user examples
+- **`grafana_dashboard_v2.json`** - Updated dashboard with multi-system support
+- **`prometheus_multi_user.yml`** - Example multi-PC Prometheus configuration
+- **[📚 Documentation](https://vegardhw.github.io/rigbeat/)** - Updated with multi-user guides
+
+## 🔄 Upgrade Instructions
+
+### From v0.1.2
+
+1. **Update Rigbeat Dependencies**:
+   ```bash
+   # Stop service
+   net stop Rigbeat
+
+   # Update Python dependencies
+   pip install -r requirements.txt
+
+   # Replace files with new version
+   # Start service
+   net start Rigbeat
+   ```
+
+2. **Enable HTTP API for Performance** (recommended):
+   - Open LibreHardwareMonitor
+   - Go to Options → Web Server
+   - Check "Enable Web Server" (port 8085)
+   - Rigbeat will automatically detect and use HTTP API
+   - Verify in debug logs: `python hardware_exporter.py --debug`
+
+3. **Configure Windows Firewall**:
+   ```powershell
+   netsh advfirewall firewall add rule name="Rigbeat" dir=in action=allow protocol=TCP localport=9182
+   ```
+
+4. **Update Grafana Dashboard**:
+   - Import new `grafana_dashboard_v2.json`
+   - Configure hostname variable for your systems
+   - Customize user labels as needed
+
+5. **Enhance Prometheus Config** (optional):
+   - Add user/location labels to existing targets
+   - Configure additional Rigbeat instances
+   - Update alerting rules with system context
+
+### New Multi-System Setup
+
+1. **Deploy Rigbeat** on each PC (same installation as before)
+2. **Configure Prometheus** with enhanced labels per system
+3. **Import updated Grafana dashboard** with multi-system support
+4. **Configure alerts** with user/system-specific routing

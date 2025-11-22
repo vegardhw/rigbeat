@@ -16,7 +16,7 @@ Rigbeat is designed for Windows systems and requires specific components to acce
 ### Python Version
 - **Python 3.8** - Minimum supported
 - **Python 3.9** - Recommended
-- **Python 3.10** - Recommended  
+- **Python 3.10** - Recommended
 - **Python 3.11** - Supported
 - **Python 3.12** - Supported
 
@@ -31,7 +31,7 @@ Download Python from [python.org](https://python.org/downloads/) and ensure "Add
 - **AMD**: Ryzen, Threadripper, EPYC, FX series
 - **Others**: Most x64 processors with temperature sensors
 
-### Supported GPUs  
+### Supported GPUs
 - **NVIDIA**: GeForce, RTX, GTX, Quadro, Tesla series
 - **AMD**: Radeon RX, Radeon Pro, FirePro series
 - **Intel**: Arc series (limited support)
@@ -98,7 +98,7 @@ For metrics storage and querying:
 
 ### Grafana
 For dashboards and visualization:
-- **Version**: 8.0 or later  
+- **Version**: 8.0 or later
 - **Plugins**: No additional plugins required
 - **Dashboard**: Import provided `grafana_dashboard.json`
 
@@ -117,14 +117,14 @@ For containerized Prometheus/Grafana:
 
 ### Gaming Performance
 - **No measurable impact** on gaming FPS
-- **Non-blocking**: Monitoring runs independently  
+- **Non-blocking**: Monitoring runs independently
 - **Low priority**: Service runs at normal priority
 
 ## Compatibility Notes
 
 ### Virtualization
 - **VMware**: Demo mode only (no hardware sensors)
-- **VirtualBox**: Demo mode only  
+- **VirtualBox**: Demo mode only
 - **Hyper-V**: Demo mode only
 - **Physical hardware**: Full functionality
 

@@ -3,7 +3,7 @@ REM Rigbeat - Installation Wrapper
 REM This launches the modern PowerShell installer
 
 echo ============================================
-echo Rigbeat - Installation v0.1.2
+echo Rigbeat - Installation v0.1.3
 echo ============================================
 echo.
 

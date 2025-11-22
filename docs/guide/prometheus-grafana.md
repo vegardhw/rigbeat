@@ -12,7 +12,7 @@ rigbeat_fan_speed_rpm{fan="LABEL", type="TYPE"} VALUE
 
 Where:
 - **`fan`**: Unique identifier for the specific fan
-- **`type`**: Category (`gpu`, `cpu`, `chassis`, `other`)  
+- **`type`**: Category (`gpu`, `cpu`, `chassis`, `other`)
 - **`VALUE`**: Current RPM reading
 
 ## Common Prometheus Queries
@@ -74,7 +74,7 @@ Create a stat panel with threshold-based colors:
       "thresholds": {
         "steps": [
           {"color": "red", "value": 0},      // Stopped - Critical
-          {"color": "yellow", "value": 500}, // Slow - Warning  
+          {"color": "yellow", "value": 500}, // Slow - Warning
           {"color": "green", "value": 1000}, // Normal - Good
           {"color": "blue", "value": 2000}   // High - Gaming
         ]
@@ -93,7 +93,7 @@ For trend monitoring, create a time series panel:
 
 **Panel Settings**:
 - Group by: `{{type}} - {{fan}}`
-- Y-axis label: "RPM"  
+- Y-axis label: "RPM"
 - Connect null values: true
 
 ### Fan Status Overview
@@ -134,7 +134,7 @@ groups:
           description: "{{ $labels.type }} fan {{ $labels.fan }} RPM: {{ $value }}"
 
       # Any fan running slow
-      - alert: FanRunningLow  
+      - alert: FanRunningLow
         expr: rigbeat_fan_speed_rpm < 500
         for: 3m
         labels:
@@ -172,7 +172,7 @@ abs(
 # Alert if intake/exhaust fans are significantly unbalanced
 abs(
   avg(rigbeat_fan_speed_rpm{fan=~"chassis_fan_[12]"}) -
-  avg(rigbeat_fan_speed_rpm{fan=~"chassis_fan_[34]"})  
+  avg(rigbeat_fan_speed_rpm{fan=~"chassis_fan_[34]"})
 ) > 300
 ```
 
@@ -182,7 +182,7 @@ abs(
 Organize panels by fan purpose rather than location:
 
 - **Critical Cooling**: GPU + CPU fans
-- **Airflow Management**: Chassis fans  
+- **Airflow Management**: Chassis fans
 - **Custom Cooling**: AIO pumps, etc.
 
 ### 2. Color Coding by Type
@@ -209,7 +209,7 @@ Combine fan metrics with related data:
 rigbeat_fan_speed_rpm{type="gpu"}
 rigbeat_gpu_temperature_celsius
 
-# System load context  
+# System load context
 rigbeat_fan_speed_rpm{type="cpu"}
 rigbeat_cpu_load_percent{core="total"}
 ```
@@ -243,11 +243,186 @@ rigbeat_fan_speed_rpm{type="gpu"} / rigbeat_gpu_temperature_celsius
 ```
 
 ### Power vs Cooling Balance
-```promql  
+```promql
 # High fan speed with low load might indicate dust buildup
-rigbeat_fan_speed_rpm{type="cpu"} 
+rigbeat_fan_speed_rpm{type="cpu"}
 and
 rigbeat_cpu_load_percent{core="total"} < 20
 ```
 
 These queries help identify when fans are working harder than expected, potentially indicating maintenance needs.
+
+## Multi-User & Multi-PC Setup
+
+### Prometheus Configuration for Multiple Systems
+
+Rigbeat supports monitoring multiple PCs through Prometheus labels and federation.
+
+#### Single Prometheus Instance (Recommended)
+
+**Monitor multiple Rigbeat instances:**
+
+```yaml
+scrape_configs:
+  # Gaming PC
+  - job_name: 'rigbeat-gaming'
+    static_configs:
+      - targets: ['192.168.1.10:9182']
+        labels:
+          instance: 'gaming-pc-main'
+          user: 'primary'
+          location: 'office'
+          hostname: 'GAMING-DESKTOP'
+
+  # Workstation
+  - job_name: 'rigbeat-workstation'
+    static_configs:
+      - targets: ['192.168.1.11:9182']
+        labels:
+          instance: 'workstation-render'
+          user: 'secondary'
+          location: 'studio'
+          hostname: 'WORK-PC'
+
+  # HTPC
+  - job_name: 'rigbeat-htpc'
+    scrape_interval: 30s  # Less frequent
+    static_configs:
+      - targets: ['192.168.1.12:9182']
+        labels:
+          instance: 'media-center'
+          user: 'family'
+          location: 'living-room'
+          hostname: 'HTPC'
+```
+
+#### Multi-User Queries
+
+**Filter by user:**
+```promql
+# Primary user's systems
+rigbeat_cpu_temperature_celsius{user="primary"}
+
+# All GPU temps across users
+rigbeat_gpu_temperature_celsius
+
+# Compare CPU temps between systems
+rigbeat_cpu_temperature_celsius{instance=~"gaming.*|workstation.*"}
+```
+
+**Family dashboard queries:**
+```promql
+# Kids' PC fan status
+rigbeat_fan_speed_rpm{user="kids"}
+
+# All systems in office location
+rigbeat_gpu_temperature_celsius{location="office"}
+
+# High load detection across all PCs
+rigbeat_cpu_load_percent{core="total"} > 80
+```
+
+### Grafana Multi-System Dashboard
+
+**Panel configuration for multiple PCs:**
+
+```json
+{
+  "targets": [
+    {
+      "expr": "rigbeat_cpu_temperature_celsius",
+      "legendFormat": "{{hostname}} - {{sensor}}"
+    }
+  ],
+  "options": {
+    "legend": {
+      "displayMode": "table",
+      "values": ["current", "max"]
+    }
+  }
+}
+```
+
+**System selector variable:**
+```json
+{
+  "name": "system",
+  "type": "query",
+  "query": "label_values(rigbeat_system_info, hostname)",
+  "multi": true,
+  "includeAll": true
+}
+```
+
+**Use in panel queries:**
+```promql
+rigbeat_cpu_temperature_celsius{hostname=~"$system"}
+```
+
+### Multi-System Alerts
+
+```yaml
+groups:
+  - name: multi_system_alerts
+    rules:
+      # Any system high temp
+      - alert: AnySystemHighTemp
+        expr: rigbeat_cpu_temperature_celsius > 80
+        for: 2m
+        labels:
+          severity: warning
+        annotations:
+          summary: "High CPU temp on {{$labels.hostname}}"
+          description: "{{$labels.user}}'s {{$labels.hostname}} CPU at {{$value}}°C"
+
+      # Gaming PC specific
+      - alert: GamingPCThermalIssue
+        expr: |
+          rigbeat_gpu_temperature_celsius{user="primary"} > 85
+          or
+          rigbeat_cpu_temperature_celsius{user="primary"} > 85
+        for: 1m
+        labels:
+          severity: critical
+        annotations:
+          summary: "Gaming PC thermal emergency"
+          description: "Primary gaming system overheating: {{$value}}°C"
+
+      # Family PC maintenance
+      - alert: FamilyPCFanIssue
+        expr: rigbeat_fan_speed_rpm{user="family"} < 300
+        for: 5m
+        labels:
+          severity: info
+        annotations:
+          summary: "Family PC fan needs attention"
+          description: "{{$labels.fan}} running slow at {{$value}} RPM"
+```
+
+### Federation Setup
+
+**For large deployments with multiple Prometheus instances:**
+
+```yaml
+# Central Prometheus (federation target)
+scrape_configs:
+  - job_name: 'federate-gaming-pcs'
+    scrape_interval: 15s
+    honor_labels: true
+    metrics_path: '/federate'
+    params:
+      'match[]':
+        - '{job=~"rigbeat.*"}'  # Federate all Rigbeat metrics
+    static_configs:
+      - targets:
+        - 'gaming-pc:9090'     # Gaming PC Prometheus
+        - 'workstation:9090'   # Workstation Prometheus
+        - 'htpc:9090'          # HTPC Prometheus
+```
+
+**Benefits of multi-user setup:**
+- 🏠 **Family monitoring**: Track all household PCs
+- 🎯 **User-specific alerts**: Custom notifications per user
+- 📊 **Comparative analysis**: Compare performance across systems
+- 🔧 **Maintenance scheduling**: Coordinate updates across multiple PCs
+- 📱 **Mobile accessibility**: Monitor any PC from anywhere

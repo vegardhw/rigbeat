@@ -11,12 +11,12 @@ The exporter scans LibreHardwareMonitor's WMI sensors and automatically categori
 ### 🎮 GPU Fans
 Graphics card cooling fans, typically the most critical for gaming performance.
 
-- **Detection Pattern**: Sensors containing "GPU" or "VGA" 
+- **Detection Pattern**: Sensors containing "GPU" or "VGA"
 - **Prometheus Labels**: `gpu_fan`, `gpu_fan_1`, `gpu_fan_2`
 - **Type Label**: `gpu`
 - **Examples**: "GPU Fan", "GPU Fan #1", "VGA Fan"
 
-### 🔥 CPU Fans  
+### 🔥 CPU Fans
 Processor cooling fans, essential for system stability.
 
 - **Detection Pattern**: Sensors containing "CPU"
@@ -29,7 +29,7 @@ Case fans for airflow - intake and exhaust fans.
 
 - **Detection Pattern**: Sensors containing "CHA", "Chassis", or "Case"
 - **Prometheus Labels**: `chassis_fan_1`, `chassis_fan_2` (auto-numbered)
-- **Type Label**: `chassis`  
+- **Type Label**: `chassis`
 - **Examples**: "CHA1 Fan", "Chassis Fan #1", "Case Fan 2"
 
 ### 🔧 Other Fans
@@ -45,7 +45,7 @@ AIO pumps, custom cooling solutions, and miscellaneous fans.
 The system automatically extracts numbers from sensor names to create consistent labels:
 
 - `"GPU Fan #12"` → `gpu_fan_12`
-- `"Chassis Fan 3"` → `chassis_fan_3` 
+- `"Chassis Fan 3"` → `chassis_fan_3`
 - `"CHA_FAN_2"` → `chassis_fan_2`
 
 This ensures each fan gets a unique, predictable identifier for monitoring.
@@ -75,7 +75,7 @@ GPU Fans:
      Parent: /nvidiagpu/0
 
 ────────────────────────────────────────────────────────────────────────────────
-CPU Fans:  
+CPU Fans:
 ────────────────────────────────────────────────────────────────────────────────
   ✓ CPU Fan                      → cpu_fan                  1450 RPM
      Parent: /lpc/nct6798d/0
@@ -96,7 +96,7 @@ Chassis Fans:
 - Ready for production monitoring
 
 **Demo Mode** (LibreHardwareMonitor not available):
-- Service runs successfully for testing deployment  
+- Service runs successfully for testing deployment
 - No fan metrics collected (by design)
 - Perfect for CI/CD testing and VM deployment validation
 
@@ -109,7 +109,7 @@ A typical gaming PC might have this fan configuration:
 rigbeat_fan_speed_rpm{fan="gpu_fan_1", type="gpu"} 1850
 rigbeat_fan_speed_rpm{fan="gpu_fan_2", type="gpu"} 1820
 
-# CPU cooling  
+# CPU cooling
 rigbeat_fan_speed_rpm{fan="cpu_fan", type="cpu"} 1450
 
 # Case airflow
@@ -138,5 +138,5 @@ elif sensor_type == "Fan":
 ```
 
 ::: tip Best Practice
-Always test detection changes with `python test_fans.py` before deploying to production.
+Always test detection changes with `python test_fans.py` first to discover all fans.
 :::

@@ -5,12 +5,15 @@
 [![Prometheus](https://img.shields.io/badge/Prometheus-compatible-orange.svg)](https://prometheus.io/)
 [![Documentation](https://img.shields.io/badge/docs-VitePress-blue.svg)](https://vegardhw.github.io/rigbeat/)
 
+<div align="center">
+    <img src="docs/logo.svg" alt="Rigbeat Logo" width="200"/>
+</div>
+
 **Prometheus exporter for Windows hardware monitoring** - Track your gaming PC's temperatures, fan speeds, and performance with beautiful Grafana dashboards.
+> 🎯 **Perfect for gaming PCs, workstations, and home labs — especially easy if you already have Prometheus and Grafana running. Docker deployment also available.**
 
-> 🎯 **Perfect for gaming PCs, workstations, and home labs**
-
-<!-- DASHBOARD SCREENSHOT PLACEHOLDER - Add your Grafana dashboard screenshot here -->
-![Dashboard Preview](https://via.placeholder.com/800x400?text=🎮+Gaming+PC+Dashboard+Screenshot+Coming+Soon)
+<!-- DASHBOARD SCREENSHOT -->
+![Dashboard Preview](docs/images/dashboard-preview.png)
 *📱 Mobile-optimized dashboard showing CPU/GPU temps, fan speeds, and system performance*
 
 ## ✨ Key Features
@@ -18,6 +21,7 @@
 - 🌡️ **Real-time Temperature Monitoring** - CPU/GPU temperatures per core and sensor
 - 💨 **Smart Fan Detection** - Auto-categorizes GPU, CPU, chassis, and other fans
 - ⚡ **Power Consumption Tracking** - CPU/GPU power draw monitoring for efficiency analysis
+- 🚀 **High Performance** - HTTP API integration with ~90% less CPU overhead than WMI
 - 📊 **Performance Metrics** - CPU/GPU load, clock speeds, memory usage
 - 📱 **Mobile-Optimized Dashboard** - Perfect for tablets and phones
 - 🛡️ **Robust Windows Service** - Graceful handling with demo mode support
@@ -47,13 +51,19 @@ rigbeat_gpu_power_watts{gpu="nvidia_geforce_rtx_4080"} 185.5
 rigbeat_fan_speed_rpm{fan="gpu_fan_1",type="gpu"} 1850.0
 ```
 
+**Performance Check:** Run with debug to verify HTTP API usage:
+```bash
+python hardware_exporter.py --debug
+# Look for: 🚀 Connected to LibreHardwareMonitor HTTP API (optimized performance)
+```
+
 ### 3. **Set Up Dashboard**
 Import the included Grafana dashboard for beautiful visualizations:
 
 <!-- GRAFANA DASHBOARD INSTRUCTIONS PLACEHOLDER -->
 *📊 Complete Grafana setup instructions and dashboard gallery in the documentation*
 
-## 📖 Documentation
+## 📖 Docs
 
 **[📚 Full Documentation →](https://vegardhw.github.io/rigbeat/)**
 
@@ -71,8 +81,6 @@ Import the included Grafana dashboard for beautiful visualizations:
 | **🎮 Gaming Focused** | Designed specifically for Windows gaming hardware |
 | **🧠 Smart Detection** | Automatically identifies and categorizes your fans |
 | **📱 Mobile First** | Dashboard works beautifully on your phone/tablet |
-| **🛡️ Production Ready** | Robust service with proper error handling |
-| **☁️ VM Compatible** | Test deployment on virtual machines with demo mode |
 
 ## 📊 What You Get
 
@@ -80,7 +88,7 @@ Import the included Grafana dashboard for beautiful visualizations:
 ```prometheus
 # Intelligent fan categorization
 rigbeat_fan_speed_rpm{fan="gpu_fan_1",type="gpu"} 1850.0      # Graphics card
-rigbeat_fan_speed_rpm{fan="cpu_fan",type="cpu"} 1450.0        # CPU cooler  
+rigbeat_fan_speed_rpm{fan="cpu_fan",type="cpu"} 1450.0        # CPU cooler
 rigbeat_fan_speed_rpm{fan="chassis_fan_1",type="chassis"} 1200.0  # Case fans
 
 # Comprehensive temperature monitoring
@@ -98,14 +106,13 @@ rigbeat_gpu_load_percent{gpu="nvidia_geforce_rtx_4080",type="core"} 85.0
 ```
 
 ### Mobile-Optimized Dashboard
-<!-- DASHBOARD FEATURES SCREENSHOT PLACEHOLDER -->
-![Dashboard Features](https://via.placeholder.com/600x300?text=📊+Temperature+Gauges+%7C+Fan+RPM+%7C+Performance+Charts)
+![Dashboard Features](docs/images/dashboard-features.png)
 *🎨 Beautiful temperature gauges, fan monitoring, and performance tracking*
 
 ## 💡 Perfect For
 
 - **🎮 Gaming PCs** - Monitor thermals during intense sessions
-- **💼 Workstations** - Track performance during heavy workloads  
+- **💼 Workstations** - Track performance during heavy workloads
 - **🏠 Home Labs** - Keep tabs on 24/7 systems
 - **🔧 System Builders** - Validate cooling performance
 

@@ -1,0 +1,133 @@
+# Prometheus configuration for Rigbeat
+#
+# This configuration is optimized for real-time hardware monitoring
+# with fast scrape intervals and appropriate timeouts for gaming PCs.
+#
+# Usage:
+#   1. Save as prometheus.yml
+#   2. Place in your Prometheus config directory
+#   3. Start Prometheus with: prometheus --config.file=prometheus.yml
+
+global:
+  scrape_interval: 2s      # Fast updates for real-time monitoring
+  evaluation_interval: 15s
+  external_labels:
+    monitor: 'prometheus-home-main'      # Prometheus instance identity
+    datacenter: 'home'              # Useful for federation
+    prometheus_replica: 'main'      # If you run multiple Prometheus instances
+
+# Alertmanager configuration (optional)
+# Uncomment and configure if you want hardware alerts
+# alerting:
+#   alertmanagers:
+#     - static_configs:
+#         - targets:
+#           - localhost:9093
+
+# Load rules once and periodically evaluate them
+# Uncomment and create alerts.yml for hardware temperature/fan alerts
+# rule_files:
+#   - "alerts.yml"
+
+scrape_configs:
+  # Rigbeat Hardware Monitor - Gaming PC
+  - job_name: 'rigbeat-gaming-pc'
+    scrape_interval: 2s
+    scrape_timeout: 10s
+    metrics_path: '/metrics'
+    static_configs:
+      - targets: ['10.0.0.10:9182']
+        labels:
+          instance: 'gaming-pc-main'
+          hostname: 'GAMING-DESKTOP'
+          environment: 'home'
+          service: 'rigbeat'
+          user: 'primary'
+          location: 'office'
+
+  # Example: Additional Rigbeat instances for multi-PC setup
+  # - job_name: 'rigbeat-workstation'
+  #   scrape_interval: 5s
+  #   scrape_timeout: 10s
+  #   metrics_path: '/metrics'
+  #   static_configs:
+  #     - targets: ['192.168.1.100:9182']
+  #       labels:
+  #         instance: 'workstation-render'
+  #         hostname: 'WORK-PC'
+  #         environment: 'home'
+  #         service: 'rigbeat'
+  #         user: 'secondary'
+  #         location: 'studio'
+  #
+  # - job_name: 'rigbeat-htpc'
+  #   scrape_interval: 15s  # Less frequent for HTPC
+  #   scrape_timeout: 10s
+  #   metrics_path: '/metrics'
+  #   static_configs:
+  #     - targets: ['192.168.1.101:9182']
+  #       labels:
+  #         instance: 'media-center'
+  #         hostname: 'HTPC'
+  #         environment: 'home'
+  #         service: 'rigbeat'
+  #         user: 'family'
+  #         location: 'living-room'
+
+  # Prometheus self-monitoring
+  - job_name: 'prometheus'
+    static_configs:
+      - targets: ['localhost:9090']
+        labels:
+          service: 'prometheus'
+
+# Example alert rules (create alerts.yml file):
+#
+# groups:
+#   - name: hardware_alerts
+#     rules:
+#       - alert: HighCPUTemp
+#         expr: rigbeat_cpu_temperature_celsius > 80
+#         for: 30s
+#         labels:
+#           severity: warning
+#         annotations:
+#           summary: "CPU temperature is high on {{ $labels.hostname }}"
+#           description: "CPU temperature is {{ $value }}°C on {{ $labels.hostname }} ({{ $labels.user }}'s {{ $labels.location }})"
+#
+#       - alert: HighGPUTemp
+#         expr: rigbeat_gpu_temperature_celsius > 85
+#         for: 30s
+#         labels:
+#           severity: warning
+#         annotations:
+#           summary: "GPU temperature is high on {{ $labels.hostname }}"
+#           description: "GPU temperature is {{ $value }}°C on {{ $labels.hostname }} ({{ $labels.user }}'s system)"
+#
+#       - alert: FanStopped
+#         expr: rigbeat_fan_speed_rpm < 200
+#         for: 60s
+#         labels:
+#           severity: critical
+#         annotations:
+#           summary: "Fan may have stopped on {{ $labels.hostname }}"
+#           description: "{{ $labels.fan }} ({{ $labels.type }}) is running at {{ $value }} RPM on {{ $labels.user }}'s {{ $labels.hostname }}"
+#
+#       - alert: RigbeatDown
+#         expr: up{service="rigbeat"} == 0
+#         for: 30s
+#         labels:
+#           severity: critical
+#         annotations:
+#           summary: "Rigbeat service is down on {{ $labels.hostname }}"
+#           description: "Hardware monitoring service is not responding on {{ $labels.user }}'s system ({{ $labels.location }})"
+#
+#       # Multi-user specific alerts
+#       - alert: GamingPCHighLoad
+#         expr: rigbeat_gpu_load_percent{user="primary", type="core"} > 95
+#         for: 5m
+#         labels:
+#           severity: info
+#         annotations:
+#           summary: "Gaming PC under heavy load"
+#           description: "Primary gaming PC GPU at {{ $value }}% load for 5+ minutes"

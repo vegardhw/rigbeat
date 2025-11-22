@@ -16,7 +16,7 @@ graph TD
     H[Temperature Sensors] --> A
 
     style A fill:#e1f5fe
-    style C fill:#f3e5f5  
+    style C fill:#f3e5f5
     style D fill:#fff3e0
     style E fill:#e8f5e8
 ```
@@ -26,7 +26,7 @@ graph TD
 
 - Hardware Sensors feed into LibreHardwareMonitor
 - LibreHardwareMonitor exposes data via WMI Interface
-- Rigbeat Service collects and processes the data  
+- Rigbeat Service collects and processes the data
 - Prometheus Metrics are exported on port 9182
 - Grafana Dashboard provides visualization
 :::
@@ -143,6 +143,12 @@ graph TD
 - **Remote visibility** into hardware health
 - **Historical analysis** for upgrade planning
 
+### 🏢 Multi-User & Family Setups
+- **Multiple PC monitoring** through Prometheus labels
+- **User-specific dashboards** and alerts
+- **Centralized monitoring** of all household systems
+- **Federation support** for large deployments
+
 ### 🔧 System Building
 - **Cooling validation** for new builds
 - **Fan curve testing** and optimization
@@ -150,7 +156,7 @@ graph TD
 
 ## Getting Started
 
-Ready to start monitoring? Follow our step-by-step guides:
+Ready to start monitoring? Follow the step-by-step guides:
 
 1. **[Installation →](/getting-started/installation)** - Get Rigbeat installed
 2. **[Fan Detection →](/guide/fan-detection)** - Understand how fans are categorized

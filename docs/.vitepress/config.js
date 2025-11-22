@@ -70,6 +70,7 @@ export default withMermaid(defineConfig({
           text: 'Troubleshooting',
           items: [
             { text: 'Common Issues', link: '/troubleshooting/common-issues' },
+            { text: 'HTTP API & Performance', link: '/troubleshooting/http-api' },
             { text: 'Fan Issues', link: '/troubleshooting/fan-issues' }
           ]
         }
