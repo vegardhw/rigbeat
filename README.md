@@ -57,6 +57,19 @@ python hardware_exporter.py --debug
 # Look for: 🚀 Connected to LibreHardwareMonitor HTTP API (optimized performance)
 ```
 
+**Sensor Modes:** Choose monitoring level based on your needs:
+```bash
+# Essential mode (default) - core gaming metrics (~20 sensors)
+python hardware_exporter.py --sensor-mode essential
+
+# Extended mode - detailed monitoring (~60 sensors)  
+python hardware_exporter.py --sensor-mode extended
+
+# Diagnostic mode - all sensors (~160 sensors)
+python hardware_exporter.py --sensor-mode diagnostic
+```
+📊 See [PERFORMANCE_ANALYSIS.md](PERFORMANCE_ANALYSIS.md) for detailed performance comparison
+
 ### 3. **Set Up Dashboard**
 Import the included Grafana dashboard for beautiful visualizations:
 

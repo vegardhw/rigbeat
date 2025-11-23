@@ -25,6 +25,61 @@ except ImportError:
     WMI_AVAILABLE = False
     wmi = None
 
+# Sensor Filtering Configuration
+# Control which sensor types and components to monitor for performance optimization
+SENSOR_FILTER_CONFIG = {
+    # Essential sensors (always included) - core gaming/monitoring metrics
+    'essential': {
+        'cpu': ['Temperature', 'Load', 'Power'],      # CPU temps, loads, power
+        'gpu': ['Temperature', 'Load', 'Power', 'Fan', 'Clock'],  # GPU essentials
+        'motherboard': ['Temperature', 'Fan'],         # System temps and cooling
+    },
+    
+    # Extended sensors (optional) - detailed monitoring
+    'extended': {
+        'cpu': ['Clock', 'Voltage'],                  # CPU frequencies, voltages
+        'gpu': ['Data', 'Throughput'],                # GPU memory, PCIe traffic  
+        'motherboard': ['Voltage'],                   # System voltages
+        'memory': ['Load', 'Data'],                   # Memory usage
+        'storage': ['Temperature', 'Load', 'Throughput'],  # Drive monitoring
+        'network': ['Load', 'Data', 'Throughput'],    # Network monitoring
+    },
+    
+    # Diagnostic sensors (development/troubleshooting) - everything
+    'diagnostic': 'all'  # Include all sensors found
+}
+
+# Default monitoring mode - can be changed via command line
+DEFAULT_SENSOR_MODE = 'essential'  # Options: 'essential', 'extended', 'diagnostic'
+
+def should_include_sensor(sensor_type: str, component_type: str, mode: str = DEFAULT_SENSOR_MODE) -> bool:
+    """
+    Determine if a sensor should be included based on filtering configuration.
+    
+    Args:
+        sensor_type: Type of sensor (Temperature, Load, Fan, etc.)
+        component_type: Component type (cpu, gpu, motherboard, etc.)
+        mode: Monitoring mode ('essential', 'extended', 'diagnostic')
+    
+    Returns:
+        True if sensor should be included, False otherwise
+    """
+    if mode == 'diagnostic':
+        return True
+    
+    # Check essential sensors first (always included)
+    essential = SENSOR_FILTER_CONFIG.get('essential', {})
+    if component_type in essential and sensor_type in essential[component_type]:
+        return True
+    
+    # Check extended sensors if in extended mode
+    if mode == 'extended':
+        extended = SENSOR_FILTER_CONFIG.get('extended', {})
+        if component_type in extended and sensor_type in extended[component_type]:
+            return True
+    
+    return False
+
 # Sensor Mapping Configuration
 # Maps LibreHardwareMonitor sensor names to standardized Prometheus metric names
 SENSOR_NAME_MAPPING = {
@@ -251,10 +306,11 @@ system_info = Info('rigbeat_system', 'System information')
 class HardwareMonitor:
     """Monitors hardware sensors via HTTP API (preferred) or WMI (fallback)"""
 
-    def __init__(self, http_host="localhost", http_port=8085):
+    def __init__(self, http_host="localhost", http_port=8085, sensor_mode=DEFAULT_SENSOR_MODE):
         self.http_host = http_host
         self.http_port = http_port
         self.http_url = f"http://{http_host}:{http_port}"
+        self.sensor_mode = sensor_mode
         self.use_http = False
         self.connected = False
         self.w = None
@@ -608,6 +664,38 @@ class HardwareMonitor:
 
         logger.debug(f"Processing {len(sensors)} sensors ({('HTTP API' if self.use_http else 'WMI')})")
         
+        # Count sensors by filtering
+        if self.sensor_mode != 'diagnostic':
+            filtered_count = 0
+            total_count = len(sensors)
+            for sensor in sensors:
+                if isinstance(sensor, dict):
+                    sensor_type = sensor.get('SensorType', '')
+                    parent = sensor.get('Parent', '')
+                else:
+                    sensor_type = getattr(sensor, 'SensorType', '')
+                    parent = getattr(sensor, 'Parent', '') or ''
+                
+                # Quick component type detection for filtering
+                component_type = ""
+                if self._is_cpu_sensor(parent):
+                    component_type = "cpu"
+                elif "gpu" in parent.lower() or "geforce" in parent.lower() or "radeon" in parent.lower():
+                    component_type = "gpu"
+                elif "motherboard" in parent.lower() or any(mb in parent.lower() for mb in ["asrock", "asus", "msi", "gigabyte"]):
+                    component_type = "motherboard"
+                elif "memory" in parent.lower():
+                    component_type = "memory"
+                elif any(drive in parent.lower() for drive in ["ssd", "hdd", "wdc", "samsung", "elements"]):
+                    component_type = "storage"
+                elif any(net in parent.lower() for net in ["ethernet", "bluetooth", "tailscale"]):
+                    component_type = "network"
+                
+                if should_include_sensor(sensor_type, component_type, self.sensor_mode):
+                    filtered_count += 1
+            
+            logger.info(f"📊 Monitoring {filtered_count}/{total_count} sensors (mode: {self.sensor_mode})")
+        
         # Debug: Log sensor types for troubleshooting
         if logger.isEnabledFor(logging.DEBUG):
             sensor_types = {}
@@ -663,6 +751,11 @@ class HardwareMonitor:
                 # Get standardized metric name
                 standardized_name = get_standardized_metric_name(sensor_name, component_type, sensor_type.lower())
                 
+                # Apply sensor filtering based on mode
+                if not should_include_sensor(sensor_type, component_type, self.sensor_mode):
+                    logger.debug(f"Filtered out sensor: {sensor_type}/{sensor_name} (mode: {self.sensor_mode})")
+                    continue
+                
                 logger.debug(f"Processing sensor: {sensor_type}/{sensor_name} = {value} (parent: {parent}) -> {standardized_name}")
 
                 # Process sensor using dynamic metrics and standardized names
@@ -681,9 +774,24 @@ class HardwareMonitor:
                         metric.labels(component=component_label, sensor=sensor_id).set(value)
                         
                     elif sensor_type == 'Fan':
-                        # Extract fan identifier
-                        name_parts = standardized_name.split('_')
-                        fan_id = '_'.join(name_parts[1:]) if len(name_parts) > 1 else 'main'
+                        # Extract fan identifier - handle different naming patterns
+                        if 'fan' in standardized_name:
+                            # For names like 'gpu_fan_1_speed' or 'motherboard_cpu_fan'
+                            if standardized_name.endswith('_speed'):
+                                # Remove '_speed' suffix first
+                                base_name = standardized_name[:-6]  # Remove '_speed'
+                            else:
+                                base_name = standardized_name
+                            
+                            # Extract fan part after component
+                            name_parts = base_name.split('_')
+                            if len(name_parts) > 1:
+                                fan_id = '_'.join(name_parts[1:])  # Everything after component
+                            else:
+                                fan_id = 'main'
+                        else:
+                            fan_id = 'main'
+                        
                         metric.labels(component=component_label, fan=fan_id).set(value)
                         
                     elif sensor_type in ['Data', 'SmallData']:
@@ -822,6 +930,9 @@ def main():
     parser.add_argument('--debug', action='store_true', help='Enable debug logging')
     parser.add_argument('--http-host', type=str, default='localhost', help='LibreHardwareMonitor HTTP API host (default: localhost)')
     parser.add_argument('--http-port', type=int, default=8085, help='LibreHardwareMonitor HTTP API port (default: 8085)')
+    parser.add_argument('--sensor-mode', type=str, default=DEFAULT_SENSOR_MODE, 
+                        choices=['essential', 'extended', 'diagnostic'],
+                        help='Sensor monitoring mode (default: essential) - essential: core metrics only (~20-30 sensors), extended: detailed monitoring (~50-80 sensors), diagnostic: all sensors (~150+ sensors)')
     args = parser.parse_args()
 
     # Configure file logging if requested
@@ -837,6 +948,7 @@ def main():
 
     logger.info(f"Starting Rigbeat Exporter v0.1.3 on port {args.port}")
     logger.info(f"Update interval: {args.interval} seconds")
+    logger.info(f"Sensor mode: {args.sensor_mode}")
 
     if args.debug:
         logger.debug(f"LibreHardwareMonitor HTTP API target: {args.http_host}:{args.http_port}")
@@ -844,7 +956,7 @@ def main():
 
     # Initialize monitor
     try:
-        monitor = HardwareMonitor(http_host=args.http_host, http_port=args.http_port)
+        monitor = HardwareMonitor(http_host=args.http_host, http_port=args.http_port, sensor_mode=args.sensor_mode)
         if not monitor.connected:
             logger.error("Failed to initialize hardware monitor. Check LibreHardwareMonitor setup.")
             logger.info("💡 Setup help:")

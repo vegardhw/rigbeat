@@ -50,9 +50,17 @@ class LibreHardwareMonitorHTTP:
                 data = response.json()
                 if "Children" in data:
                     self.connected = True
+                    print(f"✅ Connected to LibreHardwareMonitor HTTP API")
                     return
-        except requests.exceptions.RequestException:
-            pass
+                else:
+                    print(f"⚠️  HTTP API responded but data structure unexpected")
+            else:
+                print(f"❌ HTTP API returned status {response.status_code}")
+        except requests.exceptions.ConnectionError:
+            print(f"❌ Cannot connect to {self.base_url}")
+        except Exception as e:
+            print(f"❌ HTTP API error: {e}")
+        
         self.connected = False
 
     def get_fan_sensors(self):
@@ -70,7 +78,7 @@ class LibreHardwareMonitorHTTP:
         return []
 
     def _extract_fan_sensors(self, node, parent_path=""):
-        """Extract fan sensors from JSON tree"""
+        """Extract fan sensors from LibreHardwareMonitor HTTP API JSON tree"""
         fans = []
 
         # Update parent path
@@ -82,14 +90,32 @@ class LibreHardwareMonitorHTTP:
         else:
             current_path = parent_path
 
-        # If this is a fan sensor
-        if ("Type" in node and "RawValue" in node and 
-            node.get("Type") == "Fan"):
+        # Check if this is a fan sensor - HTTP API format
+        if ("Type" in node and node.get("Type") == "Fan"):
+            sensor_name = node.get("Text", "Unknown")
+            value_str = node.get("Value", "N/A")
+            raw_value = node.get("RawValue", "N/A")
+            
+            # Parse the Value field (formatted string like "1850 RPM")
+            rpm_value = 0.0
+            if value_str and value_str != "N/A":
+                try:
+                    # Parse formatted string
+                    cleaned = str(value_str).replace(',', '.').replace('RPM', '').strip()
+                    import re
+                    cleaned = re.sub(r'[^0-9.\\-]', '', cleaned)
+                    if cleaned:
+                        rpm_value = float(cleaned)
+                except:
+                    rpm_value = 0.0
+            
             fan_data = {
-                'Name': node["Text"],
-                'Value': float(node["RawValue"]) if node["RawValue"] else 0.0,
+                'Name': sensor_name,
+                'Value': rpm_value,
                 'Parent': current_path,
-                'SensorType': 'Fan'
+                'SensorType': 'Fan',
+                'ValueStr': value_str,
+                'RawValue': raw_value
             }
             fans.append(fan_data)
 
@@ -115,7 +141,7 @@ def test_fan_detection(http_host="localhost", http_port=8085, method="auto"):
 
     # Try HTTP API first (if available and not explicitly disabled)
     if method in ["auto", "http"] and HTTP_AVAILABLE:
-        print(f"🔍 Testing LibreHardwareMonitor HTTP API at {http_host}:{http_port}...")
+        print(f"🔌 Testing LibreHardwareMonitor HTTP API at {http_host}:{http_port}...")
         start_time = time.time()
 
         http_client = LibreHardwareMonitorHTTP(http_host, http_port)
