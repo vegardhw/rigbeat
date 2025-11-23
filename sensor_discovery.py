@@ -1,7 +1,31 @@
 #!/usr/bin/env python3
 """
-Debug LibreHardwareMonitor HTTP API
-Quick test to see what the HTTP API actually returns
+Rigbeat Sensor Discovery Tool
+============================
+
+Comprehensive hardware sensor discovery and analysis tool for LibreHardwareMonitor.
+This script helps you understand what sensors are available on your system and how
+they map to Prometheus metrics in Rigbeat.
+
+Features:
+- 🔍 Complete hardware component analysis (CPU, GPU, motherboard, storage, network)
+- 🌡️ Sensor type breakdown (temperature, load, clock, power, fan, voltage, etc.)
+- 🌬️ Dedicated fan analysis with RPM status monitoring  
+- 📊 Sensor count statistics across all hardware
+- 🎯 Standardized metric name mapping preview
+- ⚡ HTTP API structure investigation
+
+Usage:
+    python3 sensor_discovery.py [host] [port]
+    
+Examples:
+    python3 sensor_discovery.py                    # Local LibreHardwareMonitor
+    python3 sensor_discovery.py 192.168.1.100     # Remote system
+    python3 sensor_discovery.py localhost 8080     # Custom port
+
+Requirements:
+- LibreHardwareMonitor running with HTTP server enabled
+- Python 3.6+ with 'requests' package
 """
 
 import requests
@@ -12,7 +36,8 @@ def test_http_api(host="localhost", port=8085):
     """Test LibreHardwareMonitor HTTP API and show structure"""
     
     url = f"http://{host}:{port}/data.json"
-    print(f"Testing LibreHardwareMonitor HTTP API at {url}")
+    print(f"🔍 Rigbeat Sensor Discovery Tool")
+    print(f"📡 Connecting to LibreHardwareMonitor at {url}")
     print("=" * 80)
     
     try:
@@ -121,11 +146,15 @@ def test_http_api(host="localhost", port=8085):
             print(f"Response: {response.text[:200]}...")
             
     except requests.exceptions.ConnectionError:
-        print(f"❌ Connection failed - LibreHardwareMonitor HTTP server not running")
-        print("💡 Enable HTTP server in LibreHardwareMonitor:")
-        print("   Options → Web Server → Enable Web Server ✅")
+        print(f"❌ Connection failed - Cannot reach LibreHardwareMonitor at {host}:{port}")
+        print("\n💡 Troubleshooting Steps:")
+        print("   1. Ensure LibreHardwareMonitor is running")
+        print("   2. Enable HTTP server: Options → Web Server → Enable Web Server ✅")
+        print(f"   3. Verify the address: http://{host}:{port}/data.json")
+        print("   4. Check firewall settings if connecting remotely")
     except Exception as e:
-        print(f"❌ Error: {e}")
+        print(f"❌ Unexpected error: {e}")
+        print("\n💡 Please check your connection settings and try again.")
     
     print("=" * 80)
 
@@ -370,6 +399,10 @@ def investigate_fan_sensors(node, current_path=""):
 
 
 if __name__ == "__main__":
+    print("🔍 Rigbeat Sensor Discovery Tool")
+    print("=" * 40)
+    print()
+    
     if len(sys.argv) > 1:
         host = sys.argv[1]
         port = int(sys.argv[2]) if len(sys.argv) > 2 else 8085

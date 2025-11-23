@@ -109,6 +109,28 @@ rigbeat_gpu_load_percent{gpu="nvidia_geforce_rtx_4080",type="core"} 85.0
 ![Dashboard Features](docs/images/dashboard-features.png)
 *🎨 Beautiful temperature gauges, fan monitoring, and performance tracking*
 
+## 🔍 Troubleshooting & Tools
+
+### Sensor Discovery Tool
+**Not sure what sensors are available?** Use the sensor discovery tool to see everything:
+```bash
+python sensor_discovery.py
+# or for remote systems:
+python sensor_discovery.py 192.168.1.100 8085
+```
+
+This tool shows:
+- 🔍 All available hardware components (CPU, GPU, motherboard, storage)
+- 🌡️ Complete sensor breakdown by type (temperature, load, fan, power, etc.)
+- 🌬️ Fan analysis with RPM status monitoring
+- 📊 Sensor count statistics
+- 🎯 Preview of standardized Prometheus metric names
+
+### Common Issues
+- **No metrics showing?** Ensure LibreHardwareMonitor HTTP server is enabled
+- **Missing sensors?** Run sensor discovery tool to verify what's available
+- **High CPU usage?** Check that HTTP API is being used (not WMI fallback)
+
 ## 💡 Perfect For
 
 - **🎮 Gaming PCs** - Monitor thermals during intense sessions
