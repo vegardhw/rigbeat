@@ -62,19 +62,19 @@ class HardwareMonitor:
         self.use_http = False
         self.connected = False
         self.w = None
-        
+
         # Performance optimizations
         self._session = None  # Reuse HTTP connections
         self._compiled_patterns = self._compile_regex_patterns()  # Cache regex patterns
         self._sensor_filter_cache = {}  # Cache sensor categorization
-        
+
         # Try HTTP API first (performance optimized)
         self._try_http_connection()
-        
+
         # Fallback to WMI if HTTP not available
         if not self.use_http:
             self._try_wmi_connection()
-    
+
     def _compile_regex_patterns(self):
         """Pre-compile regex patterns for better performance"""
         return {
@@ -82,14 +82,14 @@ class HardwareMonitor:
             'fan_sanitize': re.compile(r'[^a-zA-Z0-9_]'),
             'fan_underscore': re.compile(r'_+')
         }
-    
+
     def _get_http_session(self):
         """Get or create HTTP session for connection reuse"""
         if self._session is None:
             self._session = requests.Session()
             self._session.timeout = 10
         return self._session
-    
+
     def _try_http_connection(self):
         """Attempt to connect to LibreHardwareMonitor HTTP API"""
         try:
@@ -114,9 +114,9 @@ class HardwareMonitor:
             logger.debug("HTTP API connection timeout")
         except Exception as e:
             logger.debug(f"HTTP API connection error: {e}")
-        
+
         logger.debug("HTTP API not available, will try WMI fallback")
-    
+
     def _try_wmi_connection(self):
         """Fallback to WMI connection"""
         if not WMI_AVAILABLE:
@@ -124,7 +124,7 @@ class HardwareMonitor:
             logger.info("💡 For better performance, enable LibreHardwareMonitor HTTP server in Options")
             self.connected = False
             return
-        
+
         try:
             logger.debug("Attempting WMI connection to LibreHardwareMonitor")
             self.w = wmi.WMI(namespace="root\\LibreHardwareMonitor")
@@ -143,12 +143,12 @@ class HardwareMonitor:
         """Get all hardware sensors via HTTP API or WMI"""
         if not self.connected:
             return []
-        
+
         if self.use_http:
             return self._get_sensors_http()
         else:
             return self._get_sensors_wmi()
-    
+
     def _get_sensors_http(self) -> List[Dict]:
         """Get sensors from LibreHardwareMonitor HTTP API"""
         try:
@@ -165,7 +165,7 @@ class HardwareMonitor:
         except Exception as e:
             logger.error(f"Error fetching sensors via HTTP: {e}")
             return []
-    
+
     def _get_sensors_wmi(self) -> List:
         """Get sensors from WMI (fallback method)"""
         if not self.w:
@@ -177,11 +177,11 @@ class HardwareMonitor:
         except Exception as e:
             logger.error(f"Error reading WMI sensors: {e}")
             return []
-    
+
     def _extract_sensors_from_json(self, node, parent_path="") -> List[Dict]:
         """Extract sensors from LibreHardwareMonitor JSON tree"""
         sensors = []
-        
+
         # Build parent path
         if "Text" in node and node["Text"]:
             # Clean text for parent path
@@ -192,7 +192,7 @@ class HardwareMonitor:
                 current_path = f"/{clean_text}"
         else:
             current_path = parent_path
-        
+
         # If this is a sensor node (has Type and Value)
         if "Type" in node and "Value" in node:
             # Convert to WMI-like structure for compatibility
@@ -205,22 +205,22 @@ class HardwareMonitor:
                 "Max": self._parse_sensor_value(node.get("Max", "0"))
             }
             sensors.append(sensor_data)
-        
+
         # Process children recursively
         if "Children" in node and isinstance(node["Children"], list):
             for child in node["Children"]:
                 sensors.extend(self._extract_sensors_from_json(child, current_path))
-        
+
         return sensors
-    
+
     def _parse_sensor_value(self, value_str: str) -> float:
         """Parse sensor value from string, handling units"""
         if not value_str or value_str == "":
             return 0.0
-        
+
         # Remove common units and parse number
         cleaned = str(value_str).replace('°C', '').replace('RPM', '').replace('%', '').replace('MHz', '').replace('W', '').replace('GB', '').replace('MB', '').strip()
-        
+
         try:
             return float(cleaned)
         except (ValueError, TypeError):
@@ -323,11 +323,26 @@ class HardwareMonitor:
                     gpu_load.labels(gpu=gpu_name, type=load_type).set(value)
 
                 # GPU Memory
-                elif sensor_type == "SmallData" and "Memory Used" in sensor_name and any(x in parent.lower() for x in ["/gpu", "nvidia", "amd", "radeon"]):
+                elif (sensor_type in ["SmallData", "Data"] and "Memory Used" in sensor_name and 
+                      any(x in parent.lower() for x in ["/gpu", "nvidia", "amd", "radeon"])):
                     gpu_name = parent.split("/")[-1] if "/" in parent else "gpu0"
-                    # Convert MB to GB with proper decimal precision
-                    memory_gb = round(value / 1024, 2) if value > 100 else value  # Assume MB if > 100, else already GB
-                    gpu_memory.labels(gpu=gpu_name).set(memory_gb)
+
+                    # Enhanced unit detection and conversion for GPU memory
+                    if value < 0:  # Skip invalid values
+                        continue
+                    elif value < 32:  # Likely already in GB (0.1 - 31.9 GB range)
+                        memory_gb = round(value, 2)
+                    elif value < 32000:  # Likely in MB (32 MB - 31.9 GB when converted)
+                        memory_gb = round(value / 1024, 2)
+                    else:  # Likely in KB or bytes
+                        memory_gb = round(value / (1024 * 1024), 2)
+
+                    # Sanity check: GPU memory should be reasonable (0.1 MB to 128 GB)
+                    if 0.0001 <= memory_gb <= 128:
+                        gpu_memory.labels(gpu=gpu_name).set(memory_gb)
+                        logger.debug(f"GPU {gpu_name} memory: {value} -> {memory_gb} GB")
+                    else:
+                        logger.debug(f"Skipping invalid GPU memory value: {value} -> {memory_gb} GB")
 
                 # GPU Clock
                 elif sensor_type == "Clock" and any(x in parent.lower() for x in ["/gpu", "nvidia", "amd", "radeon"]):
@@ -340,7 +355,7 @@ class HardwareMonitor:
                     # CPU Package power consumption
                     cpu_power.labels(sensor="CPU Package").set(value)
 
-                # GPU Power  
+                # GPU Power
                 elif sensor_type == "Power" and any(x in parent.lower() for x in ["/gpu", "nvidia", "amd", "radeon"]) and "Package" in sensor_name:
                     gpu_name = parent.split("/")[-1] if "/" in parent else "gpu0" 
                     gpu_power.labels(gpu=gpu_name).set(value)
@@ -349,7 +364,7 @@ class HardwareMonitor:
                 elif sensor_type == "Fan":
                     # Categorize and label fans intelligently (optimized with cached patterns)
                     fan_name_lower = sensor_name.lower()
-                    
+
                     # Use cached patterns for performance
                     patterns = self._compiled_patterns
 
@@ -415,7 +430,7 @@ class HardwareMonitor:
             return self._get_system_info_http()
         else:
             return self._get_system_info_wmi()
-    
+
     def _get_system_info_http(self) -> Dict:
         """Get system info from HTTP API"""
         try:
@@ -428,7 +443,7 @@ class HardwareMonitor:
         except Exception as e:
             logger.error(f"Error getting system info via HTTP: {e}")
             return {'cpu': 'Unknown', 'gpu': 'Unknown', 'motherboard': 'Unknown'}
-    
+
     def _get_system_info_wmi(self) -> Dict:
         """Get system info from WMI (fallback)"""
         if not self.w:
@@ -465,38 +480,38 @@ class HardwareMonitor:
         except Exception as e:
             logger.error(f"Error getting system info: {e}")
             return {'cpu': 'Unknown', 'gpu': 'Unknown', 'motherboard': 'Unknown'}
-    
+
     def _extract_system_info_from_json(self, data) -> Dict:
         """Extract hardware info from JSON data"""
         info = {'cpu': 'Unknown', 'gpu': 'Unknown', 'motherboard': 'Unknown'}
-        
+
         def search_hardware_node(node):
             if "Text" in node and node["Text"]:
                 text = node["Text"]
                 text_lower = text.lower()
-                
+
                 # CPU detection
                 if any(x in text_lower for x in ["intel", "amd", "ryzen", "core i", "threadripper", "epyc"]):
                     if not any(x in text_lower for x in ["gpu", "graphics", "radeon rx", "geforce"]):
                         info['cpu'] = text
                         logger.debug(f"Detected CPU: {text}")
-                
+
                 # GPU detection
                 elif any(x in text_lower for x in ["nvidia", "geforce", "quadro", "rtx", "gtx", "radeon", "rx "]):
                     info['gpu'] = text 
                     logger.debug(f"Detected GPU: {text}")
-                
+
                 # Motherboard detection
                 elif any(x in text_lower for x in ["motherboard", "mainboard", "asus", "msi", "gigabyte", "asrock", "evga"]):
                     if "gpu" not in text_lower:  # Avoid GPU manufacturers
                         info['motherboard'] = text
                         logger.debug(f"Detected Motherboard: {text}")
-            
+
             # Search children
             if "Children" in node and isinstance(node["Children"], list):
                 for child in node["Children"]:
                     search_hardware_node(child)
-        
+
         search_hardware_node(data)
         return info
 
@@ -524,7 +539,7 @@ def main():
 
     logger.info(f"Starting Rigbeat Exporter v0.1.3 on port {args.port}")
     logger.info(f"Update interval: {args.interval} seconds")
-    
+
     if args.debug:
         logger.debug(f"LibreHardwareMonitor HTTP API target: {args.http_host}:{args.http_port}")
         logger.debug(f"WMI fallback: {'Available' if WMI_AVAILABLE else 'Not available (install with: pip install wmi pywin32)'}")
@@ -547,7 +562,7 @@ def main():
     sys_info = monitor.get_system_info()
     system_info.info(sys_info)
     logger.info(f"System: CPU={sys_info['cpu']}, GPU={sys_info['gpu']}")
-    
+
     if monitor.use_http:
         logger.info("🚀 Using LibreHardwareMonitor HTTP API (optimized performance)")
     else:
@@ -557,7 +572,7 @@ def main():
     # Start Prometheus HTTP server
     start_http_server(args.port)
     logger.info(f"Metrics available at http://localhost:{args.port}/metrics")
-    
+
     # Windows Firewall reminder
     if args.port != 9182:
         logger.warning(f"Using non-default port {args.port} - ensure Windows Firewall allows this port")
@@ -571,10 +586,10 @@ def main():
             start_time = time.time()
             monitor.update_metrics()
             update_duration = time.time() - start_time
-            
+
             if args.debug:
                 logger.debug(f"Metrics update completed in {update_duration:.3f}s")
-            
+
             time.sleep(args.interval)
     except KeyboardInterrupt:
         logger.info("Shutting down...")
