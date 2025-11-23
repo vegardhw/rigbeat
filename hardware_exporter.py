@@ -156,8 +156,24 @@ class HardwareMonitor:
             response = session.get(f"{self.http_url}/data.json")
             if response.status_code == 200:
                 data = response.json()
+                
+                # Debug: Log the structure to understand the HTTP API format
+                logger.debug(f"HTTP API response keys: {list(data.keys()) if isinstance(data, dict) else 'Not a dict'}")
+                if isinstance(data, dict) and "Children" in data:
+                    logger.debug(f"Root has {len(data['Children'])} children")
+                    # Log first few children structure
+                    for i, child in enumerate(data["Children"][:3]):
+                        if isinstance(child, dict):
+                            logger.debug(f"Child {i}: keys={list(child.keys())}, Text={child.get('Text', 'N/A')}")
+                
                 sensors = self._extract_sensors_from_json(data)
                 logger.debug(f"Retrieved {len(sensors)} sensors via HTTP API")
+                
+                # Debug: Log sensor extraction details
+                if len(sensors) == 0:
+                    logger.debug("No sensors extracted - investigating JSON structure...")
+                    self._debug_json_structure(data, depth=0, max_depth=3)
+                
                 return sensors
             else:
                 logger.error(f"HTTP API error: {response.status_code}")
@@ -165,6 +181,32 @@ class HardwareMonitor:
         except Exception as e:
             logger.error(f"Error fetching sensors via HTTP: {e}")
             return []
+    
+    def _debug_json_structure(self, node, depth=0, max_depth=3):
+        """Debug helper to understand JSON structure"""
+        if depth > max_depth:
+            return
+            
+        indent = "  " * depth
+        if isinstance(node, dict):
+            logger.debug(f"{indent}Dict keys: {list(node.keys())}")
+            if "Text" in node:
+                logger.debug(f"{indent}Text: {node['Text']}")
+            if "Type" in node:
+                logger.debug(f"{indent}Type: {node['Type']}")
+            if "Value" in node:
+                logger.debug(f"{indent}Value: {node['Value']}")
+            if "RawValue" in node:
+                logger.debug(f"{indent}RawValue: {node['RawValue']}")
+                
+            # Check children
+            if "Children" in node and isinstance(node["Children"], list):
+                logger.debug(f"{indent}Children count: {len(node['Children'])}")
+                for i, child in enumerate(node["Children"][:2]):  # Only first 2 children
+                    logger.debug(f"{indent}Child {i}:")
+                    self._debug_json_structure(child, depth + 1, max_depth)
+        else:
+            logger.debug(f"{indent}Non-dict: {type(node)}")
 
     def _get_sensors_wmi(self) -> List:
         """Get sensors from WMI (fallback method)"""
@@ -193,19 +235,45 @@ class HardwareMonitor:
         else:
             current_path = parent_path
 
-        # If this is a sensor node (has Type and RawValue for numeric data)
-        if "Type" in node and "RawValue" in node:
+        # Check if this node is a sensor - LibreHardwareMonitor might use different fields
+        is_sensor = False
+        sensor_type = None
+        sensor_value = None
+        sensor_name = node.get("Text", "Unknown")
+
+        # Try different possible sensor indicators
+        if "Type" in node:
+            # Check if this has sensor data
+            if "RawValue" in node:
+                # Preferred: RawValue is numeric
+                is_sensor = True
+                sensor_type = node["Type"] 
+                sensor_value = node["RawValue"]
+                logger.debug(f"Found sensor with RawValue: {sensor_name} = {sensor_value} ({sensor_type})")
+            elif "Value" in node and node["Value"] is not None:
+                # Fallback: Value might be string or numeric  
+                is_sensor = True
+                sensor_type = node["Type"]
+                sensor_value = node["Value"]
+                logger.debug(f"Found sensor with Value: {sensor_name} = {sensor_value} ({sensor_type})")
+
+        # If this is a sensor node, add it
+        if is_sensor and sensor_type and sensor_value is not None:
             # Convert to WMI-like structure for compatibility
-            raw_value = node.get("RawValue")
-            sensor_data = {
-                "SensorType": node["Type"],
-                "Name": node["Text"],
-                "Value": float(raw_value) if raw_value is not None else 0.0,
-                "Parent": current_path,
-                "Min": float(node.get("RawMin", 0)) if node.get("RawMin") is not None else 0.0,
-                "Max": float(node.get("RawMax", 0)) if node.get("RawMax") is not None else 0.0
-            }
-            sensors.append(sensor_data)
+            try:
+                numeric_value = float(sensor_value) if sensor_value is not None else 0.0
+                sensor_data = {
+                    "SensorType": sensor_type,
+                    "Name": sensor_name,
+                    "Value": numeric_value,
+                    "Parent": current_path,
+                    "Min": float(node.get("RawMin", node.get("Min", 0))) if node.get("RawMin") or node.get("Min") else 0.0,
+                    "Max": float(node.get("RawMax", node.get("Max", 0))) if node.get("RawMax") or node.get("Max") else 0.0
+                }
+                sensors.append(sensor_data)
+                logger.debug(f"Added sensor: {sensor_type}/{sensor_name} = {numeric_value}")
+            except (ValueError, TypeError) as e:
+                logger.debug(f"Failed to parse sensor value {sensor_value}: {e}")
 
         # Process children recursively
         if "Children" in node and isinstance(node["Children"], list):
