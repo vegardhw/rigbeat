@@ -171,7 +171,9 @@ class HardwareMonitor:
                 
                 # Debug: If extraction failed but sensors exist, investigate
                 if len(sensors) == 0 and isinstance(data, dict):
-                    logger.debug("No sensors extracted - investigating JSON structure...")
+                    logger.debug("No sensors extracted - investigating JSON structure and hierarchy...")
+                    # Check for variable hierarchy depths
+                    self._analyze_hierarchy_depths(data)
                     self._debug_json_structure(data, depth=0, max_depth=4)
                 
                 return sensors
@@ -193,6 +195,40 @@ class HardwareMonitor:
             if "Children" in node and isinstance(node["Children"], list):
                 for child in node["Children"]:
                     count += self._count_sensors_in_tree(child)
+        return count
+    
+    def _analyze_hierarchy_depths(self, node, path="", depth=0, max_depth=6):
+        """Analyze hierarchy depths to understand LibreHardwareMonitor structure"""
+        if depth > max_depth:
+            return
+            
+        if isinstance(node, dict):
+            current_path = f"{path}/{node.get('Text', 'Unknown')}"
+            
+            # Check if this node has sensors
+            direct_sensors = self._count_direct_sensors_at_level(node)
+            if direct_sensors > 0:
+                logger.debug(f"Sensors found at depth {depth}: {current_path} ({direct_sensors} sensors)")
+            
+            # Check children
+            if "Children" in node and isinstance(node["Children"], list):
+                for child in node["Children"]:
+                    self._analyze_hierarchy_depths(child, current_path, depth + 1, max_depth)
+    
+    def _count_direct_sensors_at_level(self, node):
+        """Count sensors at current level and immediate children"""
+        count = 0
+        
+        # Check if this node is a sensor
+        if "Type" in node and ("RawValue" in node or "Value" in node):
+            count += 1
+        
+        # Check immediate children
+        if "Children" in node and isinstance(node["Children"], list):
+            for child in node["Children"]:
+                if isinstance(child, dict) and "Type" in child and ("RawValue" in child or "Value" in child):
+                    count += 1
+        
         return count
     
     def _debug_json_structure(self, node, depth=0, max_depth=4):

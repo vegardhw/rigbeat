@@ -43,11 +43,34 @@ def test_http_api(host="localhost", port=8085):
                             # Explore each hardware component for sensors (not just the first one!)
                             if "Children" in child:
                                 print(f"     🔍 Exploring {child_text}...")
-                                sensor_count = find_and_show_sensors(child, depth=1, max_sensors=3, sensors_found=0)
-                                if sensor_count == 0:
-                                    print("       ❌ No sensors found in this component")
-                                elif sensor_count > 3:
-                                    print(f"       ... and {sensor_count - 3} more sensors in this component")
+                                
+                                # Check if this hardware has direct sensors or intermediate levels
+                                direct_sensors = count_direct_sensors(child)
+                                if direct_sensors > 0:
+                                    print(f"       📊 {direct_sensors} sensors at this level")
+                                    sensor_count = find_and_show_sensors(child, depth=1, max_sensors=3, sensors_found=0)
+                                else:
+                                    # Look for intermediate levels (like "Nuvoton NCT6792D")
+                                    print(f"       🔍 Checking intermediate levels...")
+                                    intermediate_count = 0
+                                    total_sensors_found = 0
+                                    
+                                    for intermediate in child.get("Children", []):
+                                        if isinstance(intermediate, dict) and "Text" in intermediate:
+                                            intermediate_name = intermediate["Text"]
+                                            intermediate_sensors = count_sensors(intermediate)
+                                            
+                                            if intermediate_sensors > 0:
+                                                print(f"       📁 {intermediate_name}: {intermediate_sensors} sensors")
+                                                if total_sensors_found < 3:  # Show sensors from first few intermediate levels
+                                                    subsensors = find_and_show_sensors(intermediate, depth=2, max_sensors=2, sensors_found=0)
+                                                    total_sensors_found += subsensors
+                                                intermediate_count += 1
+                                    
+                                    if intermediate_count == 0:
+                                        print("       ❌ No sensors found in this component")
+                                    else:
+                                        sensor_count = total_sensors_found
                     
                     print()
                     
@@ -83,6 +106,44 @@ def test_http_api(host="localhost", port=8085):
         print(f"❌ Error: {e}")
     
     print("=" * 80)
+
+
+def count_direct_sensors(node):
+    """Count sensors directly at this level (not in children)"""
+    if not isinstance(node, dict):
+        return 0
+    
+    count = 0
+    # Check if this node itself is a sensor
+    if "Type" in node and ("RawValue" in node or "Value" in node):
+        count += 1
+    
+    # Check immediate children only (not recursive)
+    if "Children" in node and isinstance(node["Children"], list):
+        for child in node["Children"]:
+            if isinstance(child, dict) and "Type" in child and ("RawValue" in child or "Value" in child):
+                count += 1
+    
+    return count
+
+
+def count_direct_sensors(node):
+    """Count sensors directly at this level (not in children)"""
+    if not isinstance(node, dict):
+        return 0
+    
+    count = 0
+    # Check if this node itself is a sensor
+    if "Type" in node and ("RawValue" in node or "Value" in node):
+        count += 1
+    
+    # Check immediate children only (not recursive)
+    if "Children" in node and isinstance(node["Children"], list):
+        for child in node["Children"]:
+            if isinstance(child, dict) and "Type" in child and ("RawValue" in child or "Value" in child):
+                count += 1
+    
+    return count
 
 
 def find_and_show_sensors(node, depth=0, max_sensors=5, sensors_found=0):
