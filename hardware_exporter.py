@@ -295,49 +295,57 @@ class HardwareMonitor:
         else:
             current_path = parent_path
 
-        # Check if this node is a sensor - LibreHardwareMonitor might use different fields
+        # Check if this node is a sensor - LibreHardwareMonitor HTTP API format
         is_sensor = False
         sensor_type = None
         sensor_value = None
         sensor_name = node.get("Text", "Unknown")
 
-        # Try different possible sensor indicators
-        if "Type" in node:
-            # Check if this has sensor data
-            if "RawValue" in node:
-                # Preferred: RawValue is numeric
+        # LibreHardwareMonitor HTTP API uses "Type" + "Value" (formatted string)
+        # RawValue is typically "N/A" in HTTP API, so we need to parse Value
+        if "Type" in node and "Value" in node:
+            raw_value = node.get("RawValue")
+            value_str = node.get("Value")
+            
+            if raw_value is not None and raw_value != "N/A" and str(raw_value).lower() != "n/a":
+                # Preferred: Use RawValue if available and not N/A
                 is_sensor = True
                 sensor_type = node["Type"] 
-                sensor_value = node["RawValue"]
+                sensor_value = raw_value
                 logger.debug(f"Found sensor with RawValue: {sensor_name} = {sensor_value} ({sensor_type}) at {current_path}")
-            elif "Value" in node and node["Value"] is not None:
-                # Fallback: Value might be string or numeric  
+            elif value_str is not None and value_str != "" and str(value_str).lower() != "n/a":
+                # Fallback: Parse formatted Value string (e.g., "45.2 °C", "1850 RPM")
                 is_sensor = True
                 sensor_type = node["Type"]
-                sensor_value = node["Value"]
-                logger.debug(f"Found sensor with Value: {sensor_name} = {sensor_value} ({sensor_type}) at {current_path}")
+                sensor_value = value_str
+                logger.debug(f"Found sensor with Value string: {sensor_name} = {sensor_value} ({sensor_type}) at {current_path}")
 
         # If this is a sensor node, add it
         if is_sensor and sensor_type and sensor_value is not None:
             # Convert to WMI-like structure for compatibility
             try:
-                # Handle both numeric and string values
+                # Handle both numeric and formatted string values
                 if isinstance(sensor_value, (int, float)):
+                    # Direct numeric value (from RawValue)
                     numeric_value = float(sensor_value)
                 else:
-                    # Try to parse string value (might have units)
+                    # Parse formatted string (from Value field like "45.2 °C", "1850 RPM")
                     numeric_value = self._parse_sensor_value(str(sensor_value))
                     
-                sensor_data = {
-                    "SensorType": sensor_type,
-                    "Name": sensor_name,
-                    "Value": numeric_value,
-                    "Parent": current_path,
-                    "Min": float(node.get("RawMin", node.get("Min", 0))) if node.get("RawMin") or node.get("Min") else 0.0,
-                    "Max": float(node.get("RawMax", node.get("Max", 0))) if node.get("RawMax") or node.get("Max") else 0.0
-                }
-                sensors.append(sensor_data)
-                logger.debug(f"Added sensor: {sensor_type}/{sensor_name} = {numeric_value} (path: {current_path})")
+                # Only add sensors with valid numeric values
+                if numeric_value is not None and numeric_value >= 0:
+                    sensor_data = {
+                        "SensorType": sensor_type,
+                        "Name": sensor_name,
+                        "Value": numeric_value,
+                        "Parent": current_path,
+                        "Min": self._parse_sensor_value(str(node.get("Min", "0"))) or 0.0,
+                        "Max": self._parse_sensor_value(str(node.get("Max", "0"))) or 0.0
+                    }
+                    sensors.append(sensor_data)
+                    logger.debug(f"Added sensor: {sensor_type}/{sensor_name} = {numeric_value} (path: {current_path})")
+                else:
+                    logger.debug(f"Skipped sensor with invalid value: {sensor_name} = {sensor_value} -> {numeric_value}")
             except (ValueError, TypeError) as e:
                 logger.debug(f"Failed to parse sensor value {sensor_value}: {e}")
 
@@ -349,17 +357,26 @@ class HardwareMonitor:
         return sensors
 
     def _parse_sensor_value(self, value_str: str) -> float:
-        """Parse sensor value from string, handling units"""
-        if not value_str or value_str == "":
-            return 0.0
+        """Parse sensor value from string, handling units and European decimal format"""
+        if not value_str or value_str == "" or str(value_str).lower() in ["n/a", "null", "none"]:
+            return None
 
-        # Remove common units and parse number
-        cleaned = str(value_str).replace('°C', '').replace('RPM', '').replace('%', '').replace('MHz', '').replace('W', '').replace('GB', '').replace('MB', '').strip()
-
+        # Remove common units and clean up the string
+        cleaned = str(value_str).replace('°C', '').replace('RPM', '').replace('%', '').replace('MHz', '').replace('W', '').replace('GB', '').replace('MB', '').replace('V', '').replace('A', '').strip()
+        
+        # Handle European decimal format (comma as decimal separator)
+        cleaned = cleaned.replace(',', '.')
+        
+        # Remove any remaining non-numeric characters except decimal point and minus
+        import re
+        cleaned = re.sub(r'[^0-9.\-]', '', cleaned)
+        
         try:
-            return float(cleaned)
+            value = float(cleaned)
+            return value if value >= 0 else None  # Return None for negative values
         except (ValueError, TypeError):
-            return 0.0
+            logger.debug(f"Could not parse sensor value: '{value_str}' -> '{cleaned}'")
+            return None
 
     def _is_cpu_sensor(self, parent: str) -> bool:
         """Check if sensor belongs to CPU (Intel, AMD, or other)"""

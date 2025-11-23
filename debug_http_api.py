@@ -163,6 +163,19 @@ def find_and_show_sensors(node, depth=0, max_sensors=5, sensors_found=0):
                 indent = "       " + "  " * depth
                 print(f"{indent}🌡️  {sensor_type}: {sensor_name}")
                 print(f"{indent}     RawValue: {raw_value}, Value: {value}")
+                
+                # Show what the parsed value would be
+                if value and str(value) not in ["N/A", "n/a", ""]:
+                    try:
+                        # Parse like the main script does
+                        cleaned = str(value).replace(',', '.').replace('°C', '').replace('RPM', '').replace('%', '').replace('MHz', '').replace('W', '').replace('V', '').replace('A', '').strip()
+                        import re
+                        cleaned = re.sub(r'[^0-9.\\-]', '', cleaned)
+                        if cleaned:
+                            parsed = float(cleaned)
+                            print(f"{indent}     Parsed: {parsed}")
+                    except:
+                        pass
             sensors_found += 1
             
         # Check children recursively (look deeper!)
@@ -189,8 +202,24 @@ def find_sensor_locations(node, path="", max_examples=10, examples_found=0):
                 sensor_name = node.get("Text", "Unknown") 
                 sensor_type = node.get("Type", "Unknown")
                 raw_value = node.get("RawValue", "N/A")
+                value_str = node.get("Value", "N/A")
                 print(f"  📍 {current_path}")
-                print(f"     Type: {sensor_type}, Name: {sensor_name}, RawValue: {raw_value}")
+                print(f"     Type: {sensor_type}, Name: {sensor_name}")
+                print(f"     RawValue: {raw_value}, Value: {value_str}")
+                
+                # Show parsing result for Value field
+                if value_str and value_str != "N/A":
+                    try:
+                        # Simple parsing simulation
+                        cleaned = str(value_str).replace(',', '.').replace('°C', '').replace('RPM', '').replace('%', '').replace('MHz', '').replace('W', '').replace('GB', '').replace('MB', '').replace('V', '').replace('A', '').strip()
+                        import re
+                        cleaned = re.sub(r'[^0-9.\\-]', '', cleaned)
+                        if cleaned:
+                            parsed_value = float(cleaned)
+                            print(f"     Parsed: {parsed_value}")
+                    except:
+                        print(f"     Parsed: FAILED")
+                        
             return examples_found + 1
             
         # Check children
