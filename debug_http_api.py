@@ -43,25 +43,11 @@ def test_http_api(host="localhost", port=8085):
                             # Look for sensors in first component
                             if i == 0 and "Children" in child:
                                 print(f"     🔍 Exploring {child_text}...")
-                                sensor_count = 0
-                                for subchild in child["Children"][:10]:  # First 10 items
-                                    if isinstance(subchild, dict):
-                                        if "Type" in subchild and ("RawValue" in subchild or "Value" in subchild):
-                                            sensor_count += 1
-                                            sensor_name = subchild.get("Text", "Unknown")
-                                            sensor_type = subchild.get("Type", "Unknown")
-                                            raw_value = subchild.get("RawValue", "N/A")
-                                            value = subchild.get("Value", "N/A")
-                                            print(f"       🌡️  {sensor_type}: {sensor_name}")
-                                            print(f"            RawValue: {raw_value}, Value: {value}")
-                                            
-                                            if sensor_count >= 3:  # Show only first 3 sensors
-                                                break
-                                                
-                                if sensor_count > 3:
-                                    print(f"       ... and {sensor_count - 3} more sensors")
-                                elif sensor_count == 0:
+                                sensor_count = find_and_show_sensors(child, depth=1, max_sensors=5)
+                                if sensor_count == 0:
                                     print("       ❌ No sensors found in this component")
+                                elif sensor_count > 5:
+                                    print(f"       ... and {sensor_count - 5} more sensors")
                     
                     print()
                     
@@ -69,6 +55,10 @@ def test_http_api(host="localhost", port=8085):
                     print("🔍 Searching entire tree for sensors...")
                     total_sensors = count_sensors(data)
                     print(f"📊 Total sensors found: {total_sensors}")
+                    
+                    if total_sensors > 0:
+                        print("🔍 Finding sensor locations...")
+                        find_sensor_locations(data, path="Root", max_examples=10)
                     
                     if total_sensors == 0:
                         print("❌ No sensors found anywhere in the JSON tree!")
@@ -93,6 +83,62 @@ def test_http_api(host="localhost", port=8085):
         print(f"❌ Error: {e}")
     
     print("=" * 80)
+
+
+def find_and_show_sensors(node, depth=0, max_sensors=5):
+    """Find and show sensors in a node and its children"""
+    sensor_count = 0
+    
+    if isinstance(node, dict):
+        # Check if this node is a sensor
+        if "Type" in node and ("RawValue" in node or "Value" in node):
+            if sensor_count < max_sensors:
+                sensor_name = node.get("Text", "Unknown")
+                sensor_type = node.get("Type", "Unknown")
+                raw_value = node.get("RawValue", "N/A")
+                value = node.get("Value", "N/A")
+                indent = "       " + "  " * depth
+                print(f"{indent}🌡️  {sensor_type}: {sensor_name}")
+                print(f"{indent}     RawValue: {raw_value}, Value: {value}")
+            sensor_count += 1
+            
+        # Check children
+        if "Children" in node and isinstance(node["Children"], list):
+            for child in node["Children"]:
+                child_sensors = find_and_show_sensors(child, depth + 1, max_sensors - sensor_count)
+                sensor_count += child_sensors
+                if sensor_count >= max_sensors:
+                    break
+    
+    return sensor_count
+
+
+def find_sensor_locations(node, path="", max_examples=10, examples_found=0):
+    """Find where sensors are located in the tree"""
+    if examples_found >= max_examples:
+        return examples_found
+        
+    if isinstance(node, dict):
+        current_path = f"{path}/{node.get('Text', 'Unknown')}" if node.get('Text') else path
+        
+        # Check if this node is a sensor
+        if "Type" in node and ("RawValue" in node or "Value" in node):
+            if examples_found < max_examples:
+                sensor_name = node.get("Text", "Unknown") 
+                sensor_type = node.get("Type", "Unknown")
+                raw_value = node.get("RawValue", "N/A")
+                print(f"  📍 {current_path}")
+                print(f"     Type: {sensor_type}, Name: {sensor_name}, RawValue: {raw_value}")
+            return examples_found + 1
+            
+        # Check children
+        if "Children" in node and isinstance(node["Children"], list):
+            for child in node["Children"]:
+                examples_found = find_sensor_locations(child, current_path, max_examples, examples_found)
+                if examples_found >= max_examples:
+                    break
+    
+    return examples_found
 
 
 def count_sensors(node):

@@ -161,18 +161,18 @@ class HardwareMonitor:
                 logger.debug(f"HTTP API response keys: {list(data.keys()) if isinstance(data, dict) else 'Not a dict'}")
                 if isinstance(data, dict) and "Children" in data:
                     logger.debug(f"Root has {len(data['Children'])} children")
-                    # Log first few children structure
-                    for i, child in enumerate(data["Children"][:3]):
-                        if isinstance(child, dict):
-                            logger.debug(f"Child {i}: keys={list(child.keys())}, Text={child.get('Text', 'N/A')}")
+                    
+                    # Quick count to see if sensors exist anywhere
+                    total_sensor_count = self._count_sensors_in_tree(data)
+                    logger.debug(f"Total sensors found in JSON tree: {total_sensor_count}")
                 
                 sensors = self._extract_sensors_from_json(data)
                 logger.debug(f"Retrieved {len(sensors)} sensors via HTTP API")
                 
-                # Debug: Log sensor extraction details
-                if len(sensors) == 0:
+                # Debug: If extraction failed but sensors exist, investigate
+                if len(sensors) == 0 and isinstance(data, dict):
                     logger.debug("No sensors extracted - investigating JSON structure...")
-                    self._debug_json_structure(data, depth=0, max_depth=3)
+                    self._debug_json_structure(data, depth=0, max_depth=4)
                 
                 return sensors
             else:
@@ -182,29 +182,53 @@ class HardwareMonitor:
             logger.error(f"Error fetching sensors via HTTP: {e}")
             return []
     
-    def _debug_json_structure(self, node, depth=0, max_depth=3):
+    def _count_sensors_in_tree(self, node):
+        """Count all sensors in the JSON tree"""
+        count = 0
+        if isinstance(node, dict):
+            # Check if this node is a sensor
+            if "Type" in node and ("RawValue" in node or "Value" in node):
+                count += 1
+            # Check children
+            if "Children" in node and isinstance(node["Children"], list):
+                for child in node["Children"]:
+                    count += self._count_sensors_in_tree(child)
+        return count
+    
+    def _debug_json_structure(self, node, depth=0, max_depth=4):
         """Debug helper to understand JSON structure"""
         if depth > max_depth:
             return
             
         indent = "  " * depth
         if isinstance(node, dict):
-            logger.debug(f"{indent}Dict keys: {list(node.keys())}")
-            if "Text" in node:
-                logger.debug(f"{indent}Text: {node['Text']}")
+            node_text = node.get('Text', 'No Text')
+            logger.debug(f"{indent}Node: {node_text}")
+            logger.debug(f"{indent}Keys: {list(node.keys())}")
+            
+            # Check if this is a sensor
             if "Type" in node:
-                logger.debug(f"{indent}Type: {node['Type']}")
-            if "Value" in node:
-                logger.debug(f"{indent}Value: {node['Value']}")
-            if "RawValue" in node:
-                logger.debug(f"{indent}RawValue: {node['RawValue']}")
-                
+                sensor_type = node.get('Type')
+                has_raw = 'RawValue' in node
+                has_value = 'Value' in node
+                logger.debug(f"{indent}*** SENSOR: Type={sensor_type}, RawValue={has_raw}, Value={has_value}")
+                if has_raw:
+                    logger.debug(f"{indent}    RawValue: {node.get('RawValue')}")
+                if has_value:
+                    logger.debug(f"{indent}    Value: {node.get('Value')}")
+                    
             # Check children
             if "Children" in node and isinstance(node["Children"], list):
-                logger.debug(f"{indent}Children count: {len(node['Children'])}")
-                for i, child in enumerate(node["Children"][:2]):  # Only first 2 children
+                children_count = len(node["Children"])
+                logger.debug(f"{indent}Children: {children_count}")
+                
+                # Show a few children for debugging
+                for i, child in enumerate(node["Children"][:3]):  # First 3 children only
                     logger.debug(f"{indent}Child {i}:")
                     self._debug_json_structure(child, depth + 1, max_depth)
+                    
+                if children_count > 3:
+                    logger.debug(f"{indent}... and {children_count - 3} more children")
         else:
             logger.debug(f"{indent}Non-dict: {type(node)}")
 
