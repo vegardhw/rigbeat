@@ -48,7 +48,7 @@ def test_http_api(host="localhost", port=8085):
                                 direct_sensors = count_direct_sensors(child)
                                 if direct_sensors > 0:
                                     print(f"       📊 {direct_sensors} sensors at this level")
-                                    sensor_count = find_and_show_sensors(child, depth=1, max_sensors=3, sensors_found=0)
+                                    sensor_count = find_and_show_sensors(child, depth=1, max_sensors=20, sensors_found=0)  # Show more sensors
                                 else:
                                     # Look for intermediate levels (like "Nuvoton NCT6792D")
                                     print(f"       🔍 Checking intermediate levels...")
@@ -70,13 +70,15 @@ def test_http_api(host="localhost", port=8085):
                                                         if isinstance(category, dict) and "Text" in category:
                                                             category_name = category["Text"]
                                                             category_sensors = count_sensors(category)
+                                                            print(f"             📂 {category_name}: {category_sensors} sensors")
+                                                            
+                                                            # Show ALL sensors in each category (like the Special investigation)
                                                             if category_sensors > 0:
-                                                                print(f"             📂 {category_name}: {category_sensors} sensors")
-                                                            else:
-                                                                print(f"             📂 {category_name}: no sensors")
+                                                                print(f"                🔍 Sensors in {category_name}:")
+                                                                find_and_show_sensors(category, depth=4, max_sensors=category_sensors, sensors_found=0)
                                                 
-                                                if total_sensors_found < 3:  # Show sensors from first few intermediate levels
-                                                    subsensors = find_and_show_sensors(intermediate, depth=2, max_sensors=2, sensors_found=0)
+                                                if total_sensors_found < 50:  # Show many more sensors from each hardware component
+                                                    subsensors = find_and_show_sensors(intermediate, depth=2, max_sensors=20, sensors_found=0)
                                                     total_sensors_found += subsensors
                                                 intermediate_count += 1
                                     
@@ -93,8 +95,9 @@ def test_http_api(host="localhost", port=8085):
                     print(f"📊 Total sensors found: {total_sensors}")
                     
                     if total_sensors > 0:
-                        print("🔍 Finding sensor locations...")
-                        find_sensor_locations(data, path="Root", max_examples=15)  # Show more examples
+                        # Remove redundant sensor locations since Hardware Components now shows everything
+                        # print("🔍 Finding sensor locations...")
+                        # find_sensor_locations(data, path="Root", max_examples=15)  # Show more examples
                         
                         # Special investigation for CPU sensors
                         print("\n🔍 Special CPU/GPU investigation:")

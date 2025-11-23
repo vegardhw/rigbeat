@@ -25,6 +25,163 @@ except ImportError:
     WMI_AVAILABLE = False
     wmi = None
 
+# Sensor Mapping Configuration
+# Maps LibreHardwareMonitor sensor names to standardized Prometheus metric names
+SENSOR_NAME_MAPPING = {
+    # CPU Temperature Sensors
+    'Core (Tctl/Tdie)': 'cpu_temp_tctl',
+    'CCD1 (Tdie)': 'cpu_temp_ccd1',
+    'Package': 'cpu_package_temp',
+    'Core Max': 'cpu_core_max_temp',
+    'Core Average': 'cpu_core_avg_temp',
+    
+    # CPU Load Sensors  
+    'CPU Total': 'cpu_load_total',
+    'CPU Core Max': 'cpu_core_max_load',
+    'CPU Core #1': 'cpu_core_1_load',
+    'CPU Core #2': 'cpu_core_2_load',
+    'CPU Core #3': 'cpu_core_3_load',
+    'CPU Core #4': 'cpu_core_4_load',
+    'CPU Core #5': 'cpu_core_5_load',
+    'CPU Core #6': 'cpu_core_6_load',
+    
+    # CPU Clock Sensors
+    'Bus Speed': 'cpu_bus_speed',
+    'Core #1': 'cpu_core_1_clock',
+    'Core #2': 'cpu_core_2_clock',
+    'Core #3': 'cpu_core_3_clock',
+    'Core #4': 'cpu_core_4_clock',
+    'Core #5': 'cpu_core_5_clock',
+    'Core #6': 'cpu_core_6_clock',
+    
+    # CPU Power Sensors
+    'Package': 'cpu_package_power',
+    'Core #1 (SMU)': 'cpu_core_1_power',
+    'Core #2 (SMU)': 'cpu_core_2_power',
+    'Core #3 (SMU)': 'cpu_core_3_power',
+    'Core #4 (SMU)': 'cpu_core_4_power',
+    'Core #5 (SMU)': 'cpu_core_5_power',
+    'Core #6 (SMU)': 'cpu_core_6_power',
+    
+    # CPU Voltage Sensors
+    'Core (SVI2 TFN)': 'cpu_core_voltage',
+    'SoC (SVI2 TFN)': 'cpu_soc_voltage',
+    
+    # GPU Temperature Sensors
+    'GPU Core': 'gpu_temp_core',
+    'GPU Hot Spot': 'gpu_temp_hotspot',
+    'GPU Memory': 'gpu_temp_memory',
+    'GPU Memory Junction': 'gpu_temp_memory_junction',
+    
+    # GPU Load Sensors
+    'GPU Core': 'gpu_load_core',
+    'GPU Memory Controller': 'gpu_load_memory_controller',
+    'GPU Video Engine': 'gpu_load_video_engine',
+    'GPU 3D': 'gpu_load_3d',
+    
+    # GPU Clock Sensors
+    'GPU Core': 'gpu_core_clock',
+    'GPU Memory': 'gpu_memory_clock',
+    'GPU Shader': 'gpu_shader_clock',
+    
+    # GPU Power Sensors
+    'GPU Package': 'gpu_package_power',
+    'GPU Board Power': 'gpu_board_power',
+    
+    # GPU Fan Sensors
+    'GPU Fan 1': 'gpu_fan_1_speed',
+    'GPU Fan 2': 'gpu_fan_2_speed',
+    'GPU Fan 3': 'gpu_fan_3_speed',
+    
+    # GPU Memory Sensors
+    'GPU Memory Free': 'gpu_memory_free',
+    'GPU Memory Used': 'gpu_memory_used',
+    'GPU Memory Total': 'gpu_memory_total',
+    
+    # GPU Throughput Sensors
+    'GPU PCIe Rx': 'gpu_pcie_rx_throughput',
+    'GPU PCIe Tx': 'gpu_pcie_tx_throughput',
+    
+    # Motherboard Temperature Sensors
+    'Temperature #1': 'motherboard_temp_1',
+    'Temperature #2': 'motherboard_temp_2',
+    'Temperature #3': 'motherboard_temp_3',
+    'Temperature #4': 'motherboard_temp_4',
+    'Temperature #5': 'motherboard_temp_5',
+    'CPU': 'motherboard_cpu_temp',
+    'Motherboard': 'motherboard_temp',
+    
+    # Motherboard Voltage Sensors
+    'Vcore': 'motherboard_vcore',
+    'AVCC': 'motherboard_avcc',
+    '+3.3V': 'motherboard_3v3',
+    '+3V Standby': 'motherboard_3v_standby',
+    'CPU Termination': 'motherboard_cpu_termination',
+    '+12V': 'motherboard_12v',
+    '+5V': 'motherboard_5v',
+    'Battery': 'motherboard_battery',
+    
+    # Motherboard Fan Sensors  
+    'CPU Fan': 'motherboard_cpu_fan',
+    'Chassis Fan #1': 'motherboard_chassis_fan_1',
+    'Chassis Fan #2': 'motherboard_chassis_fan_2',
+    'Chassis Fan #3': 'motherboard_chassis_fan_3',
+    'System Fan': 'motherboard_system_fan',
+    
+    # Memory Sensors
+    'Memory': 'memory_load',
+    'Virtual Memory': 'memory_virtual_load',
+    'Memory Available': 'memory_available',
+    'Memory Used': 'memory_used',
+    
+    # Storage/Drive Sensors
+    'Used Space': 'drive_used_space',
+    'Free Space': 'drive_free_space',
+    'Total Activity': 'drive_total_activity',
+    'Read Rate': 'drive_read_rate',
+    'Write Rate': 'drive_write_rate',
+    'Read Activity': 'drive_read_activity',
+    'Write Activity': 'drive_write_activity',
+    'Temperature': 'drive_temperature',
+    
+    # Network Sensors
+    'Download Speed': 'network_download_speed',
+    'Upload Speed': 'network_upload_speed',
+    'Data Downloaded': 'network_data_downloaded',
+    'Data Uploaded': 'network_data_uploaded',
+}
+
+def get_standardized_metric_name(sensor_name: str, component_type: str = '', sensor_type: str = '') -> str:
+    """
+    Get standardized Prometheus metric name for a sensor.
+    
+    Args:
+        sensor_name: Original sensor name from LibreHardwareMonitor
+        component_type: Component type (cpu, gpu, motherboard, etc.)
+        sensor_type: Sensor type (temperature, load, clock, etc.)
+    
+    Returns:
+        Standardized metric name or original name if no mapping found
+    """
+    # First try direct mapping
+    if sensor_name in SENSOR_NAME_MAPPING:
+        return SENSOR_NAME_MAPPING[sensor_name]
+    
+    # Fallback: create standardized name from components
+    metric_name = sensor_name.lower()
+    
+    # Clean up common patterns
+    metric_name = re.sub(r'[^\w\s]', '', metric_name)  # Remove special chars
+    metric_name = re.sub(r'\s+', '_', metric_name)     # Replace spaces with underscores
+    metric_name = re.sub(r'_+', '_', metric_name)      # Remove multiple underscores
+    metric_name = metric_name.strip('_')               # Remove leading/trailing underscores
+    
+    # Add component type prefix if not already present
+    if component_type and not metric_name.startswith(component_type):
+        metric_name = f"{component_type}_{metric_name}"
+    
+    return metric_name
+
 # Configure logging
 logging.basicConfig(
     level=logging.INFO,
@@ -448,8 +605,26 @@ class HardwareMonitor:
                 # Only skip clearly invalid negative values for certain sensor types
                 if value < 0 and sensor_type in ["Temperature", "Load", "Clock", "Power", "Fan"]:
                     continue
+                
+                # Determine component type for better metric naming
+                component_type = ""
+                if self._is_cpu_sensor(parent):
+                    component_type = "cpu"
+                elif "gpu" in parent.lower() or "geforce" in parent.lower() or "radeon" in parent.lower():
+                    component_type = "gpu"
+                elif "motherboard" in parent.lower() or any(mb in parent.lower() for mb in ["asrock", "asus", "msi", "gigabyte"]):
+                    component_type = "motherboard"
+                elif "memory" in parent.lower():
+                    component_type = "memory"
+                elif any(drive in parent.lower() for drive in ["ssd", "hdd", "wdc", "samsung", "elements"]):
+                    component_type = "storage"
+                elif any(net in parent.lower() for net in ["ethernet", "bluetooth", "tailscale"]):
+                    component_type = "network"
                     
-                logger.debug(f"Processing sensor: {sensor_type}/{sensor_name} = {value} (parent: {parent})")
+                # Get standardized metric name
+                standardized_name = get_standardized_metric_name(sensor_name, component_type, sensor_type.lower())
+                
+                logger.debug(f"Processing sensor: {sensor_type}/{sensor_name} = {value} (parent: {parent}) -> {standardized_name}")
 
                 # CPU Temperature
                 if sensor_type == "Temperature" and self._is_cpu_sensor(parent):
