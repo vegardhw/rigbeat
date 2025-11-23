@@ -62,6 +62,19 @@ def test_http_api(host="localhost", port=8085):
                                             
                                             if intermediate_sensors > 0:
                                                 print(f"       📁 {intermediate_name}: {intermediate_sensors} sensors")
+                                                
+                                                # Show what sensor categories exist under this hardware
+                                                if "Children" in intermediate:
+                                                    print(f"          🔍 Sensor categories:")
+                                                    for category in intermediate.get("Children", []):
+                                                        if isinstance(category, dict) and "Text" in category:
+                                                            category_name = category["Text"]
+                                                            category_sensors = count_sensors(category)
+                                                            if category_sensors > 0:
+                                                                print(f"             📂 {category_name}: {category_sensors} sensors")
+                                                            else:
+                                                                print(f"             📂 {category_name}: no sensors")
+                                                
                                                 if total_sensors_found < 3:  # Show sensors from first few intermediate levels
                                                     subsensors = find_and_show_sensors(intermediate, depth=2, max_sensors=2, sensors_found=0)
                                                     total_sensors_found += subsensors
@@ -81,7 +94,11 @@ def test_http_api(host="localhost", port=8085):
                     
                     if total_sensors > 0:
                         print("🔍 Finding sensor locations...")
-                        find_sensor_locations(data, path="Root", max_examples=10)
+                        find_sensor_locations(data, path="Root", max_examples=15)  # Show more examples
+                        
+                        # Special investigation for CPU sensors
+                        print("\n🔍 Special CPU/GPU investigation:")
+                        investigate_cpu_gpu_sensors(data)
                     
                     if total_sensors == 0:
                         print("❌ No sensors found anywhere in the JSON tree!")
@@ -153,30 +170,32 @@ def find_and_show_sensors(node, depth=0, max_sensors=5, sensors_found=0):
         return sensors_found
         
     if isinstance(node, dict):
-        # Check if this node is a sensor
-        if "Type" in node and ("RawValue" in node or "Value" in node):
-            if sensors_found < max_sensors:
-                sensor_name = node.get("Text", "Unknown")
-                sensor_type = node.get("Type", "Unknown")
-                raw_value = node.get("RawValue", "N/A")
-                value = node.get("Value", "N/A")
-                indent = "       " + "  " * depth
-                print(f"{indent}🌡️  {sensor_type}: {sensor_name}")
-                print(f"{indent}     RawValue: {raw_value}, Value: {value}")
-                
-                # Show what the parsed value would be
-                if value and str(value) not in ["N/A", "n/a", ""]:
-                    try:
-                        # Parse like the main script does
-                        cleaned = str(value).replace(',', '.').replace('°C', '').replace('RPM', '').replace('%', '').replace('MHz', '').replace('W', '').replace('V', '').replace('A', '').strip()
-                        import re
-                        cleaned = re.sub(r'[^0-9.\\-]', '', cleaned)
-                        if cleaned:
-                            parsed = float(cleaned)
-                            print(f"{indent}     Parsed: {parsed}")
-                    except:
-                        pass
-            sensors_found += 1
+        # Check if this node is a sensor - must have Type and valid Value
+        if "Type" in node and "Value" in node:
+            value = node.get("Value")
+            if value is not None and str(value).strip() and str(value).lower() not in ["n/a", "", "null"]:
+                if sensors_found < max_sensors:
+                    sensor_name = node.get("Text", "Unknown")
+                    sensor_type = node.get("Type", "Unknown")
+                    raw_value = node.get("RawValue", "N/A")
+                    value = node.get("Value", "N/A")
+                    indent = "       " + "  " * depth
+                    print(f"{indent}🌡️  {sensor_type}: {sensor_name}")
+                    print(f"{indent}     RawValue: {raw_value}, Value: {value}")
+                    
+                    # Show what the parsed value would be
+                    if value and str(value) not in ["N/A", "n/a", ""]:
+                        try:
+                            # Parse like the main script does
+                            cleaned = str(value).replace(',', '.').replace('°C', '').replace('RPM', '').replace('%', '').replace('MHz', '').replace('W', '').replace('V', '').replace('A', '').strip()
+                            import re
+                            cleaned = re.sub(r'[^0-9.\\-]', '', cleaned)
+                            if cleaned:
+                                parsed = float(cleaned)
+                                print(f"{indent}     Parsed: {parsed}")
+                        except:
+                            pass
+                sensors_found += 1
             
         # Check children recursively (look deeper!)
         if "Children" in node and isinstance(node["Children"], list):
@@ -237,16 +256,51 @@ def count_sensors(node):
     count = 0
     
     if isinstance(node, dict):
-        # Check if this node is a sensor
-        if "Type" in node and ("RawValue" in node or "Value" in node):
-            count += 1
+        # Check if this node is a sensor - must have Type and Value fields
+        if "Type" in node and "Value" in node:
+            # Make sure it's a real sensor with a valid value (not just structure nodes)
+            value = node.get("Value")
+            if value is not None and str(value).strip() and str(value).lower() not in ["n/a", "", "null"]:
+                count += 1
             
-        # Check children
+        # Check children recursively
         if "Children" in node and isinstance(node["Children"], list):
             for child in node["Children"]:
                 count += count_sensors(child)
     
     return count
+
+
+def investigate_cpu_gpu_sensors(node, path=""):
+    """Special investigation to find CPU/GPU sensors"""
+    if isinstance(node, dict):
+        current_path = f"{path}/{node.get('Text', 'Unknown')}" if node.get('Text') else path
+        node_text = node.get('Text', '').lower()
+        
+        # Look for CPU or GPU hardware
+        if any(keyword in node_text for keyword in ['ryzen', 'intel', 'cpu', 'processor', 'geforce', 'radeon', 'nvidia', 'amd']):
+            if any(keyword in node_text for keyword in ['ryzen', 'intel', 'cpu', 'processor']):
+                hardware_type = "CPU"
+            else:
+                hardware_type = "GPU"
+                
+            print(f"  🔍 Investigating {hardware_type}: {node.get('Text', 'Unknown')}")
+            
+            if "Children" in node:
+                for category in node.get("Children", []):
+                    if isinstance(category, dict) and "Text" in category:
+                        category_name = category["Text"]
+                        category_sensors = count_sensors(category)
+                        print(f"    📂 {category_name}: {category_sensors} sensors")
+                        
+                        # Show sample sensors from each category
+                        if category_sensors > 0:
+                            sample_count = find_and_show_sensors(category, depth=0, max_sensors=2, sensors_found=0)
+        
+        # Continue searching in children
+        if "Children" in node and isinstance(node["Children"], list):
+            for child in node["Children"]:
+                investigate_cpu_gpu_sensors(child, current_path)
 
 
 if __name__ == "__main__":
