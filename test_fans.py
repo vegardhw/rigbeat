@@ -195,11 +195,13 @@ def test_fan_detection(http_host="localhost", http_port=8085, method="auto"):
         # Handle both HTTP API and WMI sensor formats
         if hasattr(sensor, 'Name'):  # WMI format
             sensor_name = sensor.Name
-            value = float(sensor.Value) if sensor.Value else 0
+            # Fix: properly handle 0 values - only skip None/empty values
+            raw_value = getattr(sensor, 'Value', None)
+            value = float(raw_value) if raw_value is not None else 0
             parent = sensor.Parent
         else:  # HTTP API format (dict)
             sensor_name = sensor.get('Name', 'Unknown')
-            value = sensor.get('Value', 0)
+            value = float(sensor.get('Value', 0)) if sensor.get('Value') is not None else 0
             parent = sensor.get('Parent', 'Unknown')
 
         # Categorize using same logic as main exporter

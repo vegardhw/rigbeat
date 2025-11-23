@@ -273,11 +273,17 @@ class HardwareMonitor:
                     # WMI object structure
                     sensor_type = getattr(sensor, 'SensorType', '')
                     sensor_name = getattr(sensor, 'Name', '')
-                    value = float(sensor.Value) if sensor.Value else 0
+                    # Fix: properly handle 0 values - only skip None/empty values
+                    raw_value = getattr(sensor, 'Value', None)
+                    value = float(raw_value) if raw_value is not None else 0
                     parent = getattr(sensor, 'Parent', '') or ''
 
-                # Skip sensors with no name or invalid values
-                if not sensor_name or value < 0:
+                # Skip sensors with no name - allow 0 values as they're valid
+                if not sensor_name:
+                    continue
+                
+                # Only skip clearly invalid negative values for certain sensor types
+                if value < 0 and sensor_type in ["Temperature", "Load", "Clock", "Power", "Fan"]:
                     continue
 
                 # CPU Temperature
@@ -328,23 +334,22 @@ class HardwareMonitor:
                     gpu_name = parent.split("/")[-1] if "/" in parent else "gpu0"
 
                     # Enhanced unit detection and conversion for GPU memory
-                    if value < 0:  # Skip invalid values
+                    if value < 0:  # Skip invalid negative values
                         continue
-                    elif value < 32:  # Likely already in GB (0.1 - 31.9 GB range)
+                    elif value < 32:  # Likely already in GB (0.0 - 31.9 GB range)
                         memory_gb = round(value, 2)
                     elif value < 32000:  # Likely in MB (32 MB - 31.9 GB when converted)
                         memory_gb = round(value / 1024, 2)
                     else:  # Likely in KB or bytes
                         memory_gb = round(value / (1024 * 1024), 2)
-
-                    # Sanity check: GPU memory should be reasonable (0.1 MB to 128 GB)
-                    if 0.0001 <= memory_gb <= 128:
+                    
+                    # Sanity check: GPU memory should be reasonable (0.0 GB to 128 GB)
+                    if 0.0 <= memory_gb <= 128:
                         gpu_memory.labels(gpu=gpu_name).set(memory_gb)
-                        logger.debug(f"GPU {gpu_name} memory: {value} -> {memory_gb} GB")
+                        if memory_gb > 0:  # Log non-zero values
+                            logger.debug(f"GPU {gpu_name} memory: {value} -> {memory_gb} GB")
                     else:
-                        logger.debug(f"Skipping invalid GPU memory value: {value} -> {memory_gb} GB")
-
-                # GPU Clock
+                        logger.debug(f"Skipping invalid GPU memory value: {value} -> {memory_gb} GB")                # GPU Clock
                 elif sensor_type == "Clock" and any(x in parent.lower() for x in ["/gpu", "nvidia", "amd", "radeon"]):
                     gpu_name = parent.split("/")[-1] if "/" in parent else "gpu0"
                     clock_type = "core" if "Core" in sensor_name else "memory" if "Memory" in sensor_name else "other"
