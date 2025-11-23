@@ -34,20 +34,20 @@ def test_http_api(host="localhost", port=8085):
                     
                     # Show first few hardware components
                     print("🖥️  Hardware Components:")
-                    for i, child in enumerate(data["Children"][:5]):
+                    for i, child in enumerate(data["Children"][:10]):  # Show up to 10 components
                         if isinstance(child, dict) and "Text" in child:
                             child_text = child["Text"]
                             child_children = len(child.get("Children", []))
                             print(f"  {i+1}. {child_text} ({child_children} children)")
                             
-                            # Look for sensors in first component
-                            if i == 0 and "Children" in child:
+                            # Explore each hardware component for sensors (not just the first one!)
+                            if "Children" in child:
                                 print(f"     🔍 Exploring {child_text}...")
-                                sensor_count = find_and_show_sensors(child, depth=1, max_sensors=5)
+                                sensor_count = find_and_show_sensors(child, depth=1, max_sensors=3, sensors_found=0)
                                 if sensor_count == 0:
                                     print("       ❌ No sensors found in this component")
-                                elif sensor_count > 5:
-                                    print(f"       ... and {sensor_count - 5} more sensors")
+                                elif sensor_count > 3:
+                                    print(f"       ... and {sensor_count - 3} more sensors in this component")
                     
                     print()
                     
@@ -85,14 +85,16 @@ def test_http_api(host="localhost", port=8085):
     print("=" * 80)
 
 
-def find_and_show_sensors(node, depth=0, max_sensors=5):
+def find_and_show_sensors(node, depth=0, max_sensors=5, sensors_found=0):
     """Find and show sensors in a node and its children"""
-    sensor_count = 0
     
+    if sensors_found >= max_sensors:
+        return sensors_found
+        
     if isinstance(node, dict):
         # Check if this node is a sensor
         if "Type" in node and ("RawValue" in node or "Value" in node):
-            if sensor_count < max_sensors:
+            if sensors_found < max_sensors:
                 sensor_name = node.get("Text", "Unknown")
                 sensor_type = node.get("Type", "Unknown")
                 raw_value = node.get("RawValue", "N/A")
@@ -100,17 +102,16 @@ def find_and_show_sensors(node, depth=0, max_sensors=5):
                 indent = "       " + "  " * depth
                 print(f"{indent}🌡️  {sensor_type}: {sensor_name}")
                 print(f"{indent}     RawValue: {raw_value}, Value: {value}")
-            sensor_count += 1
+            sensors_found += 1
             
-        # Check children
+        # Check children recursively (look deeper!)
         if "Children" in node and isinstance(node["Children"], list):
             for child in node["Children"]:
-                child_sensors = find_and_show_sensors(child, depth + 1, max_sensors - sensor_count)
-                sensor_count += child_sensors
-                if sensor_count >= max_sensors:
+                sensors_found = find_and_show_sensors(child, depth + 1, max_sensors, sensors_found)
+                if sensors_found >= max_sensors:
                     break
     
-    return sensor_count
+    return sensors_found
 
 
 def find_sensor_locations(node, path="", max_examples=10, examples_found=0):

@@ -273,19 +273,25 @@ class HardwareMonitor:
                 is_sensor = True
                 sensor_type = node["Type"] 
                 sensor_value = node["RawValue"]
-                logger.debug(f"Found sensor with RawValue: {sensor_name} = {sensor_value} ({sensor_type})")
+                logger.debug(f"Found sensor with RawValue: {sensor_name} = {sensor_value} ({sensor_type}) at {current_path}")
             elif "Value" in node and node["Value"] is not None:
                 # Fallback: Value might be string or numeric  
                 is_sensor = True
                 sensor_type = node["Type"]
                 sensor_value = node["Value"]
-                logger.debug(f"Found sensor with Value: {sensor_name} = {sensor_value} ({sensor_type})")
+                logger.debug(f"Found sensor with Value: {sensor_name} = {sensor_value} ({sensor_type}) at {current_path}")
 
         # If this is a sensor node, add it
         if is_sensor and sensor_type and sensor_value is not None:
             # Convert to WMI-like structure for compatibility
             try:
-                numeric_value = float(sensor_value) if sensor_value is not None else 0.0
+                # Handle both numeric and string values
+                if isinstance(sensor_value, (int, float)):
+                    numeric_value = float(sensor_value)
+                else:
+                    # Try to parse string value (might have units)
+                    numeric_value = self._parse_sensor_value(str(sensor_value))
+                    
                 sensor_data = {
                     "SensorType": sensor_type,
                     "Name": sensor_name,
@@ -295,7 +301,7 @@ class HardwareMonitor:
                     "Max": float(node.get("RawMax", node.get("Max", 0))) if node.get("RawMax") or node.get("Max") else 0.0
                 }
                 sensors.append(sensor_data)
-                logger.debug(f"Added sensor: {sensor_type}/{sensor_name} = {numeric_value}")
+                logger.debug(f"Added sensor: {sensor_type}/{sensor_name} = {numeric_value} (path: {current_path})")
             except (ValueError, TypeError) as e:
                 logger.debug(f"Failed to parse sensor value {sensor_value}: {e}")
 
