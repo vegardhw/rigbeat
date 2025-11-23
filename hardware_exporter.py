@@ -193,16 +193,17 @@ class HardwareMonitor:
         else:
             current_path = parent_path
 
-        # If this is a sensor node (has Type and Value)
-        if "Type" in node and "Value" in node:
+        # If this is a sensor node (has Type and RawValue for numeric data)
+        if "Type" in node and "RawValue" in node:
             # Convert to WMI-like structure for compatibility
+            raw_value = node.get("RawValue")
             sensor_data = {
                 "SensorType": node["Type"],
                 "Name": node["Text"],
-                "Value": self._parse_sensor_value(node.get("Value", "0")),
+                "Value": float(raw_value) if raw_value is not None else 0.0,
                 "Parent": current_path,
-                "Min": self._parse_sensor_value(node.get("Min", "0")),
-                "Max": self._parse_sensor_value(node.get("Max", "0"))
+                "Min": float(node.get("RawMin", 0)) if node.get("RawMin") is not None else 0.0,
+                "Max": float(node.get("RawMax", 0)) if node.get("RawMax") is not None else 0.0
             }
             sensors.append(sensor_data)
 
@@ -259,6 +260,17 @@ class HardwareMonitor:
             return
 
         logger.debug(f"Processing {len(sensors)} sensors ({('HTTP API' if self.use_http else 'WMI')})")
+        
+        # Debug: Log sensor types for troubleshooting
+        if logger.isEnabledFor(logging.DEBUG):
+            sensor_types = {}
+            for sensor in sensors:
+                if isinstance(sensor, dict):
+                    stype = sensor.get('SensorType', 'Unknown')
+                else:
+                    stype = getattr(sensor, 'SensorType', 'Unknown')
+                sensor_types[stype] = sensor_types.get(stype, 0) + 1
+            logger.debug(f"Sensor types found: {dict(sensor_types)}")
 
         for sensor in sensors:
             try:
@@ -285,6 +297,8 @@ class HardwareMonitor:
                 # Only skip clearly invalid negative values for certain sensor types
                 if value < 0 and sensor_type in ["Temperature", "Load", "Clock", "Power", "Fan"]:
                     continue
+                    
+                logger.debug(f"Processing sensor: {sensor_type}/{sensor_name} = {value} (parent: {parent})")
 
                 # CPU Temperature
                 if sensor_type == "Temperature" and self._is_cpu_sensor(parent):

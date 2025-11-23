@@ -194,12 +194,18 @@ def test_fan_detection(http_host="localhost", http_port=8085, method="auto"):
     for sensor in sensors:
         # Handle both HTTP API and WMI sensor formats
         if hasattr(sensor, 'Name'):  # WMI format
+            # Only process fan sensors in WMI mode
+            if hasattr(sensor, 'SensorType') and sensor.SensorType != 'Fan':
+                continue
             sensor_name = sensor.Name
             # Fix: properly handle 0 values - only skip None/empty values
             raw_value = getattr(sensor, 'Value', None)
             value = float(raw_value) if raw_value is not None else 0
             parent = sensor.Parent
         else:  # HTTP API format (dict)
+            # Only process fan sensors in HTTP API mode
+            if sensor.get('SensorType') != 'Fan':
+                continue
             sensor_name = sensor.get('Name', 'Unknown')
             value = float(sensor.get('Value', 0)) if sensor.get('Value') is not None else 0
             parent = sensor.get('Parent', 'Unknown')
