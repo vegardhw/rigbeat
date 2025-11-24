@@ -31,16 +31,17 @@ SENSOR_FILTER_CONFIG = {
     # Essential sensors (always included) - core gaming/monitoring metrics
     'essential': {
         'cpu': ['Temperature', 'Load', 'Power'],      # CPU temps, loads, power
-        'gpu': ['Temperature', 'Load', 'Power', 'Fan', 'Clock'],  # GPU essentials
+        'gpu': ['Temperature', 'Load', 'Power', 'Fan', 'Clock', 'Data'],  # GPU essentials + memory
         'motherboard': ['Temperature', 'Fan'],         # System temps and cooling
+        'memory': ['Data'],                            # Main RAM usage
     },
     
     # Extended sensors (optional) - detailed monitoring
     'extended': {
         'cpu': ['Clock', 'Voltage'],                  # CPU frequencies, voltages
-        'gpu': ['Data', 'Throughput'],                # GPU memory, PCIe traffic  
+        'gpu': ['Throughput'],                        # GPU PCIe traffic  
         'motherboard': ['Voltage'],                   # System voltages
-        'memory': ['Load', 'Data'],                   # Memory usage
+        'memory': ['Load'],                           # Virtual memory stats
         'storage': ['Temperature', 'Load', 'Throughput'],  # Drive monitoring
         'network': ['Load', 'Data', 'Throughput'],    # Network monitoring
     },

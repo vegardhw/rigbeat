@@ -6,7 +6,7 @@
 [![Documentation](https://img.shields.io/badge/docs-VitePress-blue.svg)](https://vegardhw.github.io/rigbeat/)
 
 <div align="center">
-    <img src="docs/logo.svg" alt="Rigbeat Logo" width="200"/>
+    <img src="docs/rigbeat_logo.png" alt="Rigbeat Logo" height="100"/>
 </div>
 
 **Prometheus exporter for Windows hardware monitoring** - Track your gaming PC's temperatures, fan speeds, and performance with beautiful Grafana dashboards.
@@ -62,13 +62,12 @@ python hardware_exporter.py --debug
 # Essential mode (default) - core gaming metrics (~20 sensors)
 python hardware_exporter.py --sensor-mode essential
 
-# Extended mode - detailed monitoring (~60 sensors)  
+# Extended mode - detailed monitoring (~60 sensors)
 python hardware_exporter.py --sensor-mode extended
 
 # Diagnostic mode - all sensors (~160 sensors)
 python hardware_exporter.py --sensor-mode diagnostic
 ```
-📊 See [PERFORMANCE_ANALYSIS.md](PERFORMANCE_ANALYSIS.md) for detailed performance comparison
 
 ### 3. **Set Up Dashboard**
 Import the included Grafana dashboard for beautiful visualizations:
@@ -143,21 +142,6 @@ This tool shows:
 - **No metrics showing?** Ensure LibreHardwareMonitor HTTP server is enabled
 - **Missing sensors?** Run sensor discovery tool to verify what's available
 - **High CPU usage?** Check that HTTP API is being used (not WMI fallback)
-
-## 💡 Perfect For
-
-- **🎮 Gaming PCs** - Monitor thermals during intense sessions
-- **💼 Workstations** - Track performance during heavy workloads
-- **🏠 Home Labs** - Keep tabs on 24/7 systems
-- **🔧 System Builders** - Validate cooling performance
-
-## 🛠️ Development & Contributing
-
-Rigbeat is open source and welcomes contributions!
-
-- **[🔧 Development Setup](https://vegardhw.github.io/rigbeat/development/building)** - Build from source
-- **[🤝 Contributing Guide](https://vegardhw.github.io/rigbeat/development/contributing)** - Help improve Rigbeat
-- **[🏗️ Architecture](https://vegardhw.github.io/rigbeat/development/architecture)** - Technical overview
 
 ### 🤖 Built with AI Assistance
 

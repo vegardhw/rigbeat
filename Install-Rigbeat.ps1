@@ -204,6 +204,7 @@ try {
     $filesToCopy = @(
         "hardware_exporter.py",
         "service_manager.py",
+        "sensor_discovery.py",
         "test_fans.py"
     )
 
@@ -211,7 +212,7 @@ try {
     $optionalFiles = @(
         "requirements.txt",
         "grafana_dashboard.json",
-        "prometheus_config.yml",
+        "prometheus.yml",
         "FAN_SUPPORT.md"
     )
 
