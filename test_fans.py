@@ -268,12 +268,12 @@ def test_fan_detection(http_host="localhost", http_port=8085, method="auto"):
             if not fan_label:
                 fan_label = "unknown_fan"
 
-            fans_by_type[fan_type].append({
-                'name': sensor_name,
-                'label': fan_label,
-                'rpm': value,
-                'parent': parent
-            })
+        fans_by_type[fan_type].append({
+            'name': sensor_name,
+            'label': fan_label,
+            'rpm': value,
+            'parent': parent
+        })
 
             all_fan_data.append({
                 'type': fan_type,
@@ -313,18 +313,26 @@ def test_fan_detection(http_host="localhost", http_port=8085, method="auto"):
 
     # Summary table
     print("=" * 80)
-    print("Summary - Prometheus Metric Labels")
+    print("Summary - New Prometheus Metric Names (v0.1.3+)")
     print("=" * 80)
-    print(f"{'Metric':<50} {'Current Value':<15} {'Status'}")
+    print(f"{'Metric Name':<50} {'Current Value':<15} {'Status'}")
     print("-" * 80)
 
     for fan in all_fan_data:
-        metric = f"fan_speed_rpm{{fan=\"{fan['label']}\", type=\"{fan['type'].lower()}\"}}"
+        # Show the new simplified metric names (no redundant labels)
+        metric = f"rigbeat_{fan['label']}_speed"
         value = f"{fan['rpm']:.0f} RPM"
         status = "RUNNING" if fan['rpm'] > 0 else "STOPPED/DISCONNECTED"
         print(f"{metric:<50} {value:<15} {status}")
 
     print("=" * 80)
+    print()
+    print("📝 IMPORTANT: Metric Structure Simplified in v0.1.3!")
+    print("-" * 80)
+    print("OLD format (v0.1.2): rigbeat_fan_speed_rpm{sensor=\"GPU Fan 1\"}")
+    print("NEW format (v0.1.3): rigbeat_gpu_fan_1_speed (no labels needed!)")
+    print()
+    print("💡 Metric names are now descriptive enough - no redundant labels!")
     print()
 
     # Recommendations
@@ -356,12 +364,25 @@ def test_fan_detection(http_host="localhost", http_port=8085, method="auto"):
     if connection_method == "wmi":
         print("  2. Enable LibreHardwareMonitor HTTP server for better performance:")
         print("     → Options → Web Server → Enable Web Server ✅")
-        print("  3. Update Grafana queries to use these exact labels")
+        print("  3. 🚨 UPDATE your Grafana queries for v0.1.3 metric changes!")
         print("  4. Run 'python hardware_exporter.py' to start the exporter")
     else:
-        print("  2. Update Grafana queries to use these exact labels")
+        print("  2. 🚨 UPDATE your Grafana queries for v0.1.3 metric changes!")
         print("  3. Run 'python hardware_exporter.py' to start the exporter")
     print("  5. Check http://localhost:9182/metrics to see live data")
+    print()
+    print("📋 Grafana Query Migration Examples:")
+    print("-" * 40)
+    if gpu_fans > 0:
+        example_fan = next(iter(fans_by_type["GPU"]), None)
+        if example_fan:
+            old_query = 'avg(rigbeat_fan_speed_rpm{sensor="GPU Fan 1"})'
+            new_query = f'rigbeat_{example_fan["label"]}_speed'
+            print(f"OLD: {old_query}")
+            print(f"NEW: {new_query}")
+    else:
+        print("OLD: avg(rigbeat_fan_speed_rpm{sensor=\"GPU Fan 1\"})")
+        print("NEW: rigbeat_gpu_fan_1_speed")
     print()
 
     return 0

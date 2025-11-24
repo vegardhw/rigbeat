@@ -261,7 +261,7 @@ logger = logging.getLogger(__name__)
 # Dynamic Prometheus metrics - created on demand for HTTP API sensors
 hardware_metrics = {}
 
-def get_or_create_metric(metric_name: str, sensor_type: str, help_text: str = "", labels: List[str] = None):
+def get_or_create_metric(metric_name: str, sensor_type: str, help_text: str = ""):
     """
     Get existing metric or create new one dynamically for HTTP API sensors.
     
@@ -269,7 +269,6 @@ def get_or_create_metric(metric_name: str, sensor_type: str, help_text: str = ""
         metric_name: Standardized metric name  
         sensor_type: Type of sensor (Temperature, Load, etc.)
         help_text: Help text for the metric
-        labels: Label names for the metric
     
     Returns:
         Prometheus Gauge metric
@@ -285,19 +284,10 @@ def get_or_create_metric(metric_name: str, sensor_type: str, help_text: str = ""
             unit = unit_map.get(sensor_type, 'units')
             help_text = f"{sensor_type} sensor value in {unit}"
         
-        # Use minimal labels for cleaner metrics
-        if labels is None:
-            if sensor_type in ['Temperature', 'Load', 'Clock', 'Power', 'Voltage']:
-                labels = ['component', 'sensor']  # e.g., component=cpu, sensor=core_1
-            elif sensor_type == 'Fan':
-                labels = ['component', 'fan']     # e.g., component=gpu, fan=fan_1
-            else:
-                labels = ['component']            # e.g., component=gpu
-        
-        # Create the metric with rigbeat prefix
+        # Create the metric with rigbeat prefix and no labels (metric name is descriptive enough)
         full_metric_name = f"rigbeat_{metric_name}"
-        hardware_metrics[metric_name] = Gauge(full_metric_name, help_text, labels)
-        logger.debug(f"Created new metric: {full_metric_name} with labels {labels}")
+        hardware_metrics[metric_name] = Gauge(full_metric_name, help_text)
+        logger.debug(f"Created new metric: {full_metric_name}")
     
     return hardware_metrics[metric_name]
 
@@ -766,60 +756,17 @@ class HardwareMonitor:
                 # Create metric dynamically and set value
                 metric = get_or_create_metric(standardized_name, sensor_type)
                 
-                # Set metric value with appropriate labels based on sensor type
+                # Set metric value directly (no labels needed - metric name is descriptive)
                 try:
-                    if sensor_type in ['Temperature', 'Load', 'Clock', 'Power', 'Voltage']:
-                        # Extract sensor identifier from standardized name
-                        name_parts = standardized_name.split('_')
-                        sensor_id = '_'.join(name_parts[1:]) if len(name_parts) > 1 else 'main'
-                        metric.labels(component=component_label, sensor=sensor_id).set(value)
-                        
-                    elif sensor_type == 'Fan':
-                        # Extract fan identifier - handle different naming patterns
-                        if 'fan' in standardized_name:
-                            # For names like 'gpu_fan_1_speed' or 'motherboard_cpu_fan'
-                            if standardized_name.endswith('_speed'):
-                                # Remove '_speed' suffix first
-                                base_name = standardized_name[:-6]  # Remove '_speed'
-                            else:
-                                base_name = standardized_name
-                            
-                            # Extract fan part after component
-                            name_parts = base_name.split('_')
-                            if len(name_parts) > 1:
-                                fan_id = '_'.join(name_parts[1:])  # Everything after component
-                            else:
-                                fan_id = 'main'
-                        else:
-                            fan_id = 'main'
-                        
-                        metric.labels(component=component_label, fan=fan_id).set(value)
-                        
-                    elif sensor_type in ['Data', 'SmallData']:
-                        # Handle memory, storage, and other data sensors
-                        name_parts = standardized_name.split('_')
-                        data_type = '_'.join(name_parts[1:]) if len(name_parts) > 1 else 'main'
-                        
-                        # Apply unit conversions for common data types
-                        converted_value = value
-                        if 'memory' in standardized_name and 'mb' in str(value).lower():
-                            # Convert MB to GB for memory sensors
-                            converted_value = round(value / 1024, 2) if value > 1024 else value
-                        elif 'memory' in standardized_name and value > 1000:
-                            # Assume large values are in MB, convert to GB
+                    # Apply unit conversions for specific sensor types
+                    converted_value = value
+                    if sensor_type in ['Data', 'SmallData'] and 'memory' in standardized_name:
+                        # Convert memory values: if >1000 assume MB, convert to GB
+                        if value > 1000:
                             converted_value = round(value / 1024, 2)
-                            
-                        metric.labels(component=component_label).set(converted_value)
-                        
-                    elif sensor_type == 'Throughput':
-                        # Network and storage throughput
-                        metric.labels(component=component_label).set(value)
-                        
-                    else:
-                        # Generic sensor types
-                        metric.labels(component=component_label).set(value)
-                        
-                    logger.debug(f"Set metric {standardized_name}: {value} (component={component_label})")
+                    
+                    metric.set(converted_value)
+                    logger.debug(f"Set metric {standardized_name}: {converted_value}")
                     
                 except Exception as e:
                     logger.warning(f"Failed to set metric {standardized_name}: {e}")
