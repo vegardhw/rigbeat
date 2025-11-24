@@ -77,49 +77,7 @@ Import the included Grafana dashboard for beautiful visualizations:
 
 ## 📖 Docs
 
-**[📚 Full Documentation →](https://vegardhw.github.io/rigbeat/)**
-
-| Section | Description |
-|---------|-------------|
-| **[🚀 Getting Started](https://vegardhw.github.io/rigbeat/getting-started/installation)** | Installation, requirements, first run |
-| **[📖 User Guide](https://vegardhw.github.io/rigbeat/guide/overview)** | Hardware setup, Grafana, Prometheus |
-| **[🔧 Troubleshooting](https://vegardhw.github.io/rigbeat/troubleshooting/common-issues)** | Common issues and solutions |
-| **[📊 Metrics Reference](https://vegardhw.github.io/rigbeat/reference/metrics)** | Complete API documentation |
-
-## 🎯 Why Rigbeat?
-
-| Feature | Benefit |
-|---------|---------|
-| **🎮 Gaming Focused** | Designed specifically for Windows gaming hardware |
-| **🧠 Smart Detection** | Automatically identifies and categorizes your fans |
-| **📱 Mobile First** | Dashboard works beautifully on your phone/tablet |
-
-## 📊 What You Get
-
-### Smart Hardware Detection
-```prometheus
-# Intelligent fan categorization
-rigbeat_fan_speed_rpm{fan="gpu_fan_1",type="gpu"} 1850.0      # Graphics card
-rigbeat_fan_speed_rpm{fan="cpu_fan",type="cpu"} 1450.0        # CPU cooler
-rigbeat_fan_speed_rpm{fan="chassis_fan_1",type="chassis"} 1200.0  # Case fans
-
-# Comprehensive temperature monitoring
-rigbeat_cpu_temperature_celsius{sensor="CPU Package"} 45.0
-rigbeat_cpu_temperature_celsius{sensor="Core Complex 1"} 42.0
-rigbeat_gpu_temperature_celsius{gpu="nvidia_geforce_rtx_4080"} 52.0
-
-# Power consumption tracking
-rigbeat_cpu_power_watts{sensor="CPU Package"} 65.2
-rigbeat_gpu_power_watts{gpu="nvidia_geforce_rtx_4080"} 185.5
-
-# Performance metrics
-rigbeat_cpu_load_percent{core="total"} 45.5
-rigbeat_gpu_load_percent{gpu="nvidia_geforce_rtx_4080",type="core"} 85.0
-```
-
-### Mobile-Optimized Dashboard
-![Dashboard Features](docs/images/dashboard-features.png)
-*🎨 Beautiful temperature gauges, fan monitoring, and performance tracking*
+**[📚 Read the docs →](https://vegardhw.github.io/rigbeat/)**
 
 ## 🔍 Troubleshooting & Tools
 

@@ -26,7 +26,7 @@ export default withMermaid(defineConfig({
   ],
 
   themeConfig: {
-    logo: '/logo.svg',
+    logo: '/rigbeat_logo.png',
 
     nav: [
       { text: 'Home', link: '/' },
