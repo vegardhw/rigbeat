@@ -26,7 +26,7 @@ export default withMermaid(defineConfig({
   ],
 
   themeConfig: {
-    logo: '/logo.svg',
+    logo: '/rigbeat_logo.png',
 
     nav: [
       { text: 'Home', link: '/' },
@@ -70,6 +70,7 @@ export default withMermaid(defineConfig({
           text: 'Troubleshooting',
           items: [
             { text: 'Common Issues', link: '/troubleshooting/common-issues' },
+            { text: 'HTTP API & Performance', link: '/troubleshooting/http-api' },
             { text: 'Fan Issues', link: '/troubleshooting/fan-issues' }
           ]
         }

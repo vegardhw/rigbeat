@@ -43,13 +43,14 @@ jobs:
         # Copy main files
         copy hardware_exporter.py rigbeat-release\
         copy service_manager.py rigbeat-release\
+        copy sensor_discovery.py rigbeat-release\
         copy test_fans.py rigbeat-release\
         copy requirements.txt rigbeat-release\
         copy README.md rigbeat-release\
         copy LICENSE rigbeat-release\
         copy Install-Rigbeat.bat rigbeat-release\
         copy Install-Rigbeat.ps1 rigbeat-release\
-        copy prometheus_config.yml rigbeat-release\
+        copy prometheus.yml rigbeat-release\
         copy grafana_dashboard.json rigbeat-release\
         copy RELEASE_NOTES.md rigbeat-release\
 
@@ -75,6 +76,7 @@ jobs:
         cd rigbeat-release
         python -m py_compile hardware_exporter.py
         python -m py_compile service_manager.py
+        python -m py_compile sensor_discovery.py
         python -m py_compile test_fans.py
         python hardware_exporter.py --help
         echo "✓ Release package validated"
@@ -90,7 +92,7 @@ jobs:
         files: |
           rigbeat-${{ github.ref_name }}-win64.zip
           grafana_dashboard.json
-          prometheus_config.yml
+          prometheus.yml
         generate_release_notes: false
         body_path: RELEASE_NOTES.md
 

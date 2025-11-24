@@ -6,7 +6,7 @@ hero:
   text: "Windows Hardware Monitoring"
   tagline: "Prometheus exporter for PC hardware metrics with beautiful Grafana dashboards"
   image:
-    src: /logo.svg
+    src: /rigbeat_logo.png
     alt: Rigbeat
   actions:
     - theme: brand
@@ -47,6 +47,11 @@ Perfect for:
 - 🏠 **Home Labs** - Keep tabs on your hardware health
 - 🔧 **System Builders** - Validate cooling performance
 
+## Dashboard Preview
+
+![Dashboard Preview](images/dashboard-preview.png)
+*📱 Mobile-optimized Grafana dashboard showing real-time hardware monitoring*
+
 ## Quick Example
 
 ```prometheus
@@ -63,14 +68,5 @@ rigbeat_fan_speed_rpm{fan="gpu_fan_1",type="gpu"} 1850.0
 rigbeat_fan_speed_rpm{fan="cpu_fan",type="cpu"} 1450.0
 rigbeat_fan_speed_rpm{fan="chassis_fan_1",type="chassis"} 1200.0
 ```
-
-## Why Choose Rigbeat?
-
-- **🎯 Gaming Focused**: Designed specifically for Windows gaming hardware
-- **🧠 Smart Detection**: Automatically identifies and categorizes your fans
-- **📱 Mobile First**: Dashboard works beautifully on your phone/tablet
-- **🛡️ Production Ready**: Robust Windows service with proper error handling
-- **☁️ VM Compatible**: Test deployment on virtual machines with demo mode
-- **📈 Historical Data**: Track thermal trends and identify issues over time
 
 [Get Started →](/getting-started/installation)

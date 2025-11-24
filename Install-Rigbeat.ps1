@@ -10,10 +10,10 @@ param(
 )
 
 # Color functions for better user experience
-function Write-Success { param($Message) Write-Host "✓ $Message" -ForegroundColor Green }
-function Write-Info { param($Message) Write-Host "ℹ $Message" -ForegroundColor Cyan }
-function Write-Warning { param($Message) Write-Host "⚠ $Message" -ForegroundColor Yellow }
-function Write-Error { param($Message) Write-Host "✗ $Message" -ForegroundColor Red }
+function Write-Success { param($Message) Write-Host "$Message" -ForegroundColor Green }
+function Write-Info { param($Message) Write-Host "$Message" -ForegroundColor Cyan }
+function Write-Warning { param($Message) Write-Host "$Message" -ForegroundColor Yellow }
+function Write-Error { param($Message) Write-Host "$Message" -ForegroundColor Red }
 function Write-Step { param($Step, $Message) Write-Host "[$Step] $Message" -ForegroundColor Magenta }
 
 # Progress tracking
@@ -30,7 +30,7 @@ function Show-Progress {
 # Header
 Clear-Host
 Write-Host "============================================" -ForegroundColor Blue
-Write-Host "        Rigbeat - Installation v0.1.1      " -ForegroundColor Blue
+Write-Host "        Rigbeat - Installation v0.1.3      " -ForegroundColor Blue
 Write-Host "    Windows Hardware Monitoring System     " -ForegroundColor Blue
 Write-Host "============================================" -ForegroundColor Blue
 Write-Host ""
@@ -53,7 +53,7 @@ function Test-Command {
 # Function to install Python via winget
 function Install-PythonWithWinget {
     Write-Step $script:CurrentStep "Installing Python via winget..."
-    Show-Progress "Installing Python" "Downloading and installing Python 3.11"
+    Show-Progress "Installing Python" "Downloading and installing Python 3.14"
 
     if (-not (Test-Command "winget")) {
         Write-Error "winget is not available on this system"
@@ -63,9 +63,9 @@ function Install-PythonWithWinget {
     }
 
     try {
-        # Install Python 3.11 (stable and well-tested)
-        Write-Info "Installing Python 3.11 via winget..."
-        $result = winget install Python.Python.3.11 --exact --silent --accept-package-agreements --accept-source-agreements 2>&1
+        # Install Python 3.14 (stable and well-tested)
+        Write-Info "Installing Python 3.14 via winget..."
+        $result = winget install Python.Python.3.14 --exact --silent --accept-package-agreements --accept-source-agreements 2>&1
 
         if ($LASTEXITCODE -eq 0) {
             Write-Success "Python installed successfully via winget"
@@ -204,6 +204,7 @@ try {
     $filesToCopy = @(
         "hardware_exporter.py",
         "service_manager.py",
+        "sensor_discovery.py",
         "test_fans.py"
     )
 
@@ -211,7 +212,7 @@ try {
     $optionalFiles = @(
         "requirements.txt",
         "grafana_dashboard.json",
-        "prometheus_config.yml",
+        "prometheus.yml",
         "FAN_SUPPORT.md"
     )
 
@@ -294,9 +295,9 @@ try {
     Write-Host "1. Install LibreHardwareMonitor:" -ForegroundColor White
     Write-Host "   Download: " -NoNewline -ForegroundColor White
     Write-Host "https://github.com/LibreHardwareMonitor/LibreHardwareMonitor/releases" -ForegroundColor Cyan
-    Write-Host "   ✓ Run as Administrator" -ForegroundColor Green
-    Write-Host "   ✓ Enable 'WMI' in Options (required!)" -ForegroundColor Green
-    Write-Host "   ✓ Enable 'Run on Windows Startup' (optional)" -ForegroundColor Green
+    Write-Host "   Run as Administrator" -ForegroundColor Green
+    Write-Host "   Enable 'WMI' in Options (required!)" -ForegroundColor Green
+    Write-Host "   Enable 'Run on Windows Startup' (optional)" -ForegroundColor Green
     Write-Host ""
 
     Write-Host "2. Test Hardware Detection (Optional but recommended):" -ForegroundColor White
@@ -331,7 +332,7 @@ catch {
     Write-Error "Installation failed: $_"
     Write-Host ""
     Write-Host "Troubleshooting:" -ForegroundColor Yellow
-    Write-Host "- Ensure you're running as Administrator" -ForegroundColor Gray
+    Write-Host "- Ensure you are running as Administrator" -ForegroundColor Gray
     Write-Host "- Check internet connection for package downloads" -ForegroundColor Gray
     Write-Host "- Verify Python 3.8+ is installed and in PATH" -ForegroundColor Gray
     Write-Host "- Check Windows Event Viewer for detailed errors" -ForegroundColor Gray

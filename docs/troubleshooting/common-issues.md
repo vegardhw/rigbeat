@@ -13,7 +13,7 @@ sc query Rigbeat
 # 2. Test hardware detection
 python test_fans.py
 
-# 3. Verify metrics endpoint  
+# 3. Verify metrics endpoint
 curl http://localhost:9182/metrics
 
 # 4. Check service logs
@@ -24,7 +24,7 @@ type "C:\ProgramData\Rigbeat\service.log"
 
 **Demo Mode** is normal for testing and development:
 - ✅ Service runs successfully
-- ✅ `/metrics` endpoint responds  
+- ✅ `/metrics` endpoint responds
 - ❌ No real hardware metrics collected
 - 💡 Perfect for CI/CD and VM testing
 
@@ -36,7 +36,7 @@ type "C:\ProgramData\Rigbeat\service.log"
 **To switch from Demo to Hardware Mode:**
 1. Install [LibreHardwareMonitor](https://github.com/LibreHardwareMonitor/LibreHardwareMonitor/releases)
 2. Run as Administrator
-3. Enable **Options → WMI** 
+3. Enable **Options → WMI**
 4. Restart Rigbeat service: `net stop Rigbeat && net start Rigbeat`
 
 ## ⚠️ Service Won't Start
@@ -70,7 +70,7 @@ net start Rigbeat
 # Install Python dependencies
 pip install -r requirements.txt
 
-# Install Windows service dependencies  
+# Install Windows service dependencies
 pip install pywin32
 ```
 
@@ -107,13 +107,13 @@ netsh advfirewall firewall add rule name="Rigbeat" dir=in action=allow protocol=
 
 #### Verification Steps
 1. **LibreHardwareMonitor Running**: Check system tray
-2. **Administrator Mode**: Right-click → "Run as Administrator"  
+2. **Administrator Mode**: Right-click → "Run as Administrator"
 3. **WMI Enabled**: Options → WMI checkbox must be checked
 4. **WMI Namespace**: Test with `wmic /namespace:\\root\LibreHardwareMonitor path sensor get name`
 
 #### Common Fixes
 - Restart LibreHardwareMonitor as Administrator
-- Reinstall LibreHardwareMonitor  
+- Reinstall LibreHardwareMonitor
 - Update to latest LHM version
 - Check Windows WMI service is running: `net start winmgmt`
 
@@ -128,7 +128,7 @@ Not all hardware exposes sensors via WMI:
 #### BIOS Settings
 Enable in BIOS/UEFI:
 - Hardware monitoring
-- Fan monitoring  
+- Fan monitoring
 - Temperature sensors
 - Chipset-specific monitoring features
 
@@ -158,7 +158,7 @@ scrape_configs:
 - Test connection from Grafana to Prometheus
 - Confirm time range includes recent data
 
-#### Query Validation  
+#### Query Validation
 - Test queries in Prometheus web UI first
 - Verify metric names match exactly
 - Check for typos in label selectors
@@ -234,7 +234,7 @@ Before seeking support, collect:
 # System information
 systeminfo > system_info.txt
 
-# Rigbeat diagnostics  
+# Rigbeat diagnostics
 python test_fans.py > fan_detection.txt
 
 # Service logs
@@ -252,7 +252,7 @@ curl http://localhost:9182/metrics > metrics_output.txt
 
 ### Specific Issue Pages
 
-- **🌀 Fan Detection Problems**: [Fan Issues Guide](/troubleshooting/fan-issues)  
+- **🌀 Fan Detection Problems**: [Fan Issues Guide](/troubleshooting/fan-issues)
 - **📊 Metrics/Monitoring**: [Metrics Reference](/reference/metrics)
 - **🔧 Service Management**: [Installation Guide](/getting-started/installation)
 
