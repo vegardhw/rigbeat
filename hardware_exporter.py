@@ -30,8 +30,8 @@ except ImportError:
 SENSOR_FILTER_CONFIG = {
     # Essential sensors (always included) - core gaming/monitoring metrics
     'essential': {
-        'cpu': ['Temperature', 'Load', 'Power'],      # CPU temps, loads, power
-        'gpu': ['Temperature', 'Load', 'Power', 'Fan', 'Clock', 'Data'],  # GPU essentials + memory
+        'cpu': ['Temperature', 'Load', 'Power'],      # CPU temps, loads, power (includes package power)
+        'gpu': ['Temperature', 'Load', 'Power', 'Fan', 'Clock', 'Data'],  # GPU essentials + memory (includes core temp, memory used/free/total)
         'motherboard': ['Temperature', 'Fan'],         # System temps and cooling
         'memory': ['Data'],                            # Main RAM usage
     },
@@ -102,6 +102,10 @@ SENSOR_NAME_MAPPING = {
     # Note: Individual cores handled dynamically
     
     # CPU Power Sensors
+    'Package': 'cpu_package_power',              # CPU Package power (common name)
+    'CPU Package': 'cpu_package_power',          # Alternative CPU Package name
+    'Package (SMU)': 'cpu_package_power',        # AMD SMU power reporting
+    'Core': 'cpu_core_power',                    # Generic core power
     # Note: Package and individual cores handled dynamically
     
     # CPU Voltage Sensors
@@ -109,10 +113,13 @@ SENSOR_NAME_MAPPING = {
     'SoC (SVI2 TFN)': 'cpu_soc_voltage',
     
     # GPU Temperature Sensors
-    'GPU Core': 'gpu_temp_core',
+    'GPU Core': 'gpu_temp_core',                 # Main GPU core temp
+    'GPU Temperature': 'gpu_temp_core',          # Alternative GPU core temp name
+    'Core': 'gpu_temp_core',                     # Simple core name in GPU context
     'GPU Hot Spot': 'gpu_temp_hotspot',
     'GPU Memory': 'gpu_temp_memory',
     'GPU Memory Junction': 'gpu_temp_memory_junction',
+    'Hot Spot': 'gpu_temp_hotspot',              # Alternative hotspot name
     
     # GPU Load Sensors
     'GPU Core': 'gpu_load_core',
@@ -136,6 +143,11 @@ SENSOR_NAME_MAPPING = {
     'GPU Memory Free': 'gpu_memory_free',
     'GPU Memory Used': 'gpu_memory_used',
     'GPU Memory Total': 'gpu_memory_total',
+    'Memory Free': 'gpu_memory_free',            # Alternative name in GPU context
+    'Memory Used': 'gpu_memory_used',            # Alternative name in GPU context
+    'Memory Total': 'gpu_memory_total',          # Alternative name in GPU context
+    'GPU Dedicated Memory Free': 'gpu_memory_free',    # NVIDIA naming
+    'GPU Dedicated Memory Used': 'gpu_memory_used',    # NVIDIA naming
     
     # GPU Throughput Sensors
     'GPU PCIe Rx': 'gpu_pcie_rx_throughput',
@@ -211,15 +223,41 @@ def get_standardized_metric_name(sensor_name: str, component_type: str = '', sen
         elif sensor_type.lower() == 'power':
             return f"cpu_core_{core_num}_power"
     
-    # CPU Core Power patterns: "Core #1 (SMU)", etc.
+    # CPU Package Power patterns: "Package", "CPU Package", "Package (SMU)"
+    elif sensor_type.lower() == 'power' and ('package' in sensor_name.lower() or sensor_name.lower() == 'package'):
+        return 'cpu_package_power'
+    
+    # CPU Core Power patterns: "Core #1 (SMU)", "Core", etc.
     elif re.match(r'^Core #\d+.*SMU', sensor_name):
         core_num = re.search(r'#(\d+)', sensor_name).group(1)
         return f"cpu_core_{core_num}_power"
+    elif sensor_type.lower() == 'power' and sensor_name.lower() == 'core' and component_type == 'cpu':
+        return 'cpu_core_power'
     
     # GPU Fan patterns: "GPU Fan 1", "GPU Fan 2", etc.
     elif re.match(r'^GPU Fan \d+', sensor_name):
         fan_num = re.search(r'Fan (\d+)', sensor_name).group(1)
         return f"gpu_fan_{fan_num}_speed"
+    
+    # GPU context-aware patterns
+    elif component_type == 'gpu':
+        # GPU Temperature sensors with simple names in GPU context
+        if sensor_type.lower() == 'temperature':
+            if sensor_name.lower() in ['core', 'gpu core', 'gpu temperature']:
+                return 'gpu_temp_core'
+            elif 'memory' in sensor_name.lower():
+                return 'gpu_temp_memory'
+            elif 'hot' in sensor_name.lower() or 'hotspot' in sensor_name.lower():
+                return 'gpu_temp_hotspot'
+        
+        # GPU Memory sensors (Data type) with simple names in GPU context
+        elif sensor_type.lower() in ['data', 'smalldata']:
+            if 'free' in sensor_name.lower() or sensor_name.lower() == 'memory free':
+                return 'gpu_memory_free'
+            elif 'used' in sensor_name.lower() or sensor_name.lower() == 'memory used':
+                return 'gpu_memory_used'
+            elif 'total' in sensor_name.lower() or sensor_name.lower() == 'memory total':
+                return 'gpu_memory_total'
     
     # Motherboard Temperature patterns: "Temperature #1", "Temperature #2", etc.
     elif re.match(r'^Temperature #\d+', sensor_name):
@@ -235,6 +273,19 @@ def get_standardized_metric_name(sensor_name: str, component_type: str = '', sen
     elif re.match(r'^Chassis Fan #\d+', sensor_name):
         fan_num = re.search(r'#(\d+)', sensor_name).group(1)
         return f"motherboard_chassis_fan_{fan_num}"
+    
+    # CPU context-aware patterns (for sensors that might have generic names)
+    elif component_type == 'cpu':
+        # CPU Temperature sensors
+        if sensor_type.lower() == 'temperature':
+            if 'package' in sensor_name.lower():
+                return 'cpu_package_temp'
+            elif 'tctl' in sensor_name.lower() or 'tdie' in sensor_name.lower():
+                return 'cpu_temp_tctl'
+        # CPU Power sensors with generic names
+        elif sensor_type.lower() == 'power':
+            if 'package' in sensor_name.lower() or sensor_name.lower() == 'package':
+                return 'cpu_package_power'
     
     # Fallback: create standardized name from components
     metric_name = sensor_name.lower()
@@ -690,13 +741,23 @@ class HardwareMonitor:
         # Debug: Log sensor types for troubleshooting
         if logger.isEnabledFor(logging.DEBUG):
             sensor_types = {}
+            critical_metrics = []
             for sensor in sensors:
                 if isinstance(sensor, dict):
                     stype = sensor.get('SensorType', 'Unknown')
+                    sname = sensor.get('Name', 'Unknown')
                 else:
                     stype = getattr(sensor, 'SensorType', 'Unknown')
+                    sname = getattr(sensor, 'Name', 'Unknown')
                 sensor_types[stype] = sensor_types.get(stype, 0) + 1
+                
+                # Track critical metrics that user specifically mentioned
+                if any(metric in sname for metric in ['GPU Memory Free', 'GPU Memory Used', 'GPU Memory Total', 'GPU Core', 'Package']):
+                    critical_metrics.append(f"{stype}/{sname}")
+            
             logger.debug(f"Sensor types found: {dict(sensor_types)}")
+            if critical_metrics:
+                logger.debug(f"Critical sensors found: {critical_metrics}")
 
         for sensor in sensors:
             try:
@@ -749,10 +810,6 @@ class HardwareMonitor:
                 
                 logger.debug(f"Processing sensor: {sensor_type}/{sensor_name} = {value} (parent: {parent}) -> {standardized_name}")
 
-                # Process sensor using dynamic metrics and standardized names
-                # Get appropriate labels for the metric
-                component_label = component_type or 'unknown'
-                
                 # Create metric dynamically and set value
                 metric = get_or_create_metric(standardized_name, sensor_type)
                 
@@ -766,7 +823,7 @@ class HardwareMonitor:
                             converted_value = round(value / 1024, 2)
                     
                     metric.set(converted_value)
-                    logger.debug(f"Set metric {standardized_name}: {converted_value}")
+                    logger.debug(f"✅ Set metric {standardized_name}: {converted_value}")
                     
                 except Exception as e:
                     logger.warning(f"Failed to set metric {standardized_name}: {e}")

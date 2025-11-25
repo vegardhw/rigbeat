@@ -275,13 +275,13 @@ def test_fan_detection(http_host="localhost", http_port=8085, method="auto"):
             'parent': parent
         })
 
-            all_fan_data.append({
-                'type': fan_type,
-                'name': sensor_name,
-                'label': fan_label,
-                'rpm': value,
-                'parent': parent
-            })
+        all_fan_data.append({
+            'type': fan_type,
+            'name': sensor_name,
+            'label': fan_label,
+            'rpm': value,
+            'parent': parent
+        })
 
     # Display results
     if not all_fan_data:
