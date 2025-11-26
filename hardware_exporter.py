@@ -710,20 +710,23 @@ class HardwareMonitor:
             return False
 
         parent_lower = parent.lower()
+        
+        # Exclude GPU paths first - GPU sensors should never be detected as CPU
+        gpu_indicators = ["gpu", "geforce", "nvidia", "radeon", "rx ", "rtx", "gtx", "quadro"]
+        if any(gpu in parent_lower for gpu in gpu_indicators):
+            return False
 
         # Comprehensive CPU detection patterns
         cpu_patterns = [
             "/cpu",          # Generic CPU path
             "/amdcpu",       # AMD-specific path
             "/intelcpu",     # Intel-specific path
-            "cpu",           # Generic CPU in path
             "processor",     # Alternative CPU naming
             "ryzen",         # AMD Ryzen series
             "threadripper",  # AMD Threadripper
             "epyc",          # AMD EPYC
-            "intel",         # Intel processors
             "xeon",          # Intel Xeon
-            "core",          # Intel Core series
+            "core i",        # Intel Core iX series (more specific than just "core")
         ]
 
         return any(pattern in parent_lower for pattern in cpu_patterns)
