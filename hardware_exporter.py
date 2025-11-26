@@ -15,6 +15,7 @@ import argparse
 import requests
 import json
 from typing import Dict, List, Optional
+from collections import defaultdict
 from prometheus_client import start_http_server, Gauge, Info
 
 # Try to import WMI for fallback (optional)
@@ -113,23 +114,19 @@ SENSOR_NAME_MAPPING = {
     'SoC (SVI2 TFN)': 'cpu_soc_voltage',
     
     # GPU Temperature Sensors
-    'GPU Core': 'gpu_temp_core',                 # Main GPU core temp
-    'GPU Temperature': 'gpu_temp_core',          # Alternative GPU core temp name
-    'Core': 'gpu_temp_core',                     # Simple core name in GPU context
+    # Note: 'GPU Core' handled dynamically by context-aware logic below
     'GPU Hot Spot': 'gpu_temp_hotspot',
-    'GPU Memory': 'gpu_temp_memory',
     'GPU Memory Junction': 'gpu_temp_memory_junction',
     'Hot Spot': 'gpu_temp_hotspot',              # Alternative hotspot name
     
     # GPU Load Sensors
-    'GPU Core': 'gpu_load_core',
+    # Note: 'GPU Core' handled dynamically by context-aware logic below
     'GPU Memory Controller': 'gpu_load_memory_controller',
     'GPU Video Engine': 'gpu_load_video_engine',
     'GPU 3D': 'gpu_load_3d',
     
     # GPU Clock Sensors
-    'GPU Core': 'gpu_core_clock',
-    'GPU Memory': 'gpu_memory_clock',
+    # Note: 'GPU Core' and 'GPU Memory' handled dynamically by context-aware logic below
     'GPU Shader': 'gpu_shader_clock',
     
     # GPU Power Sensors
@@ -243,20 +240,40 @@ def get_standardized_metric_name(sensor_name: str, component_type: str = '', sen
     elif component_type == 'gpu':
         # GPU Temperature sensors with simple names in GPU context
         if sensor_type.lower() == 'temperature':
-            if sensor_name.lower() in ['core', 'gpu core', 'gpu temperature']:
+            if sensor_name == 'GPU Core' or sensor_name.lower() in ['core', 'gpu temperature']:
                 return 'gpu_temp_core'
             elif 'memory' in sensor_name.lower():
                 return 'gpu_temp_memory'
             elif 'hot' in sensor_name.lower() or 'hotspot' in sensor_name.lower():
                 return 'gpu_temp_hotspot'
         
+        # GPU Load sensors
+        elif sensor_type.lower() == 'load':
+            if sensor_name == 'GPU Core' or sensor_name.lower() == 'core':
+                return 'gpu_load_core'
+            elif 'memory controller' in sensor_name.lower():
+                return 'gpu_load_memory_controller'
+            elif 'video engine' in sensor_name.lower():
+                return 'gpu_load_video_engine'
+            elif '3d' in sensor_name.lower():
+                return 'gpu_load_3d'
+        
+        # GPU Clock sensors
+        elif sensor_type.lower() == 'clock':
+            if sensor_name == 'GPU Core' or sensor_name.lower() == 'core':
+                return 'gpu_core_clock'
+            elif sensor_name == 'GPU Memory' or sensor_name.lower() == 'memory':
+                return 'gpu_memory_clock'
+            elif 'shader' in sensor_name.lower():
+                return 'gpu_shader_clock'
+        
         # GPU Memory sensors (Data type) with simple names in GPU context
         elif sensor_type.lower() in ['data', 'smalldata']:
-            if 'free' in sensor_name.lower() or sensor_name.lower() == 'memory free':
+            if 'free' in sensor_name.lower():
                 return 'gpu_memory_free'
-            elif 'used' in sensor_name.lower() or sensor_name.lower() == 'memory used':
+            elif 'used' in sensor_name.lower():
                 return 'gpu_memory_used'
-            elif 'total' in sensor_name.lower() or sensor_name.lower() == 'memory total':
+            elif 'total' in sensor_name.lower():
                 return 'gpu_memory_total'
     
     # Motherboard Temperature patterns: "Temperature #1", "Temperature #2", etc.
@@ -330,10 +347,24 @@ def get_or_create_metric(metric_name: str, sensor_type: str, help_text: str = ""
             unit_map = {
                 'Temperature': 'celsius', 'Load': 'percent', 'Clock': 'mhz', 
                 'Power': 'watts', 'Fan': 'rpm', 'Voltage': 'volts',
-                'Data': 'mb', 'Throughput': 'mb_per_sec'
+                'Data': 'megabytes', 'SmallData': 'megabytes', 'Throughput': 'mb_per_sec'
             }
             unit = unit_map.get(sensor_type, 'units')
-            help_text = f"{sensor_type} sensor value in {unit}"
+            
+            # Create descriptive help text based on sensor type
+            type_descriptions = {
+                'Temperature': 'Temperature reading',
+                'Load': 'Load percentage',
+                'Clock': 'Clock frequency',
+                'Power': 'Power consumption',
+                'Fan': 'Fan speed',
+                'Voltage': 'Voltage level',
+                'Data': 'Data size',
+                'SmallData': 'Data size',
+                'Throughput': 'Data throughput'
+            }
+            description = type_descriptions.get(sensor_type, sensor_type)
+            help_text = f"{description} in {unit}"
         
         # Create the metric with rigbeat prefix and no labels (metric name is descriptive enough)
         full_metric_name = f"rigbeat_{metric_name}"
@@ -742,20 +773,36 @@ class HardwareMonitor:
         if logger.isEnabledFor(logging.DEBUG):
             sensor_types = {}
             critical_metrics = []
+            gpu_sensors_by_type = defaultdict(list)  # Track GPU sensors by type
+            
             for sensor in sensors:
                 if isinstance(sensor, dict):
                     stype = sensor.get('SensorType', 'Unknown')
                     sname = sensor.get('Name', 'Unknown')
+                    parent = sensor.get('Parent', 'Unknown')
                 else:
                     stype = getattr(sensor, 'SensorType', 'Unknown')
                     sname = getattr(sensor, 'Name', 'Unknown')
+                    parent = getattr(sensor, 'Parent', 'Unknown')
+                    
                 sensor_types[stype] = sensor_types.get(stype, 0) + 1
+                
+                # Track GPU sensors specifically
+                if 'gpu' in parent.lower() or 'geforce' in parent.lower() or 'nvidia' in parent.lower():
+                    gpu_sensors_by_type[stype].append(sname)
                 
                 # Track critical metrics that user specifically mentioned
                 if any(metric in sname for metric in ['GPU Memory Free', 'GPU Memory Used', 'GPU Memory Total', 'GPU Core', 'Package']):
                     critical_metrics.append(f"{stype}/{sname}")
             
             logger.debug(f"Sensor types found: {dict(sensor_types)}")
+            
+            # Show GPU sensors breakdown for troubleshooting
+            if gpu_sensors_by_type:
+                logger.debug("GPU Sensors Breakdown:")
+                for stype, names in sorted(gpu_sensors_by_type.items()):
+                    logger.debug(f"  {stype}: {names}")
+            
             if critical_metrics:
                 logger.debug(f"Critical sensors found: {critical_metrics}")
 

@@ -112,7 +112,7 @@ def analyze_sensors_simple(sensors, connection_method):
     
     # Group sensors by type and component
     sensor_types = defaultdict(int)
-    components = defaultdict(int)
+    components = defaultdict(lambda: defaultdict(list))  # component -> sensor_type -> [sensors]
     critical_sensors = []
     
     for sensor in sensors:
@@ -126,42 +126,93 @@ def analyze_sensors_simple(sensors, connection_method):
         # Identify component type
         parent_lower = parent.lower()
         if 'cpu' in parent_lower or 'amd' in parent_lower or 'intel' in parent_lower:
-            components['CPU'] += 1
+            component = 'CPU'
         elif 'gpu' in parent_lower or 'nvidia' in parent_lower or 'geforce' in parent_lower:
-            components['GPU'] += 1
+            component = 'GPU'
         elif 'motherboard' in parent_lower or any(mb in parent_lower for mb in ['asus', 'msi', 'gigabyte', 'asrock']):
-            components['Motherboard'] += 1
+            component = 'Motherboard'
+        elif 'memory' in parent_lower:
+            component = 'Memory'
+        elif any(drive in parent_lower for drive in ['ssd', 'hdd', 'storage']):
+            component = 'Storage'
+        elif any(net in parent_lower for net in ['ethernet', 'network', 'nic']):
+            component = 'Network'
         else:
-            components['Other'] += 1
+            component = 'Other'
+        
+        # Store sensor details by component and type
+        components[component][sensor_type].append({
+            'name': sensor_name,
+            'value': sensor_value,
+            'parent': parent
+        })
         
         # Track critical sensors mentioned by user
         if any(critical in sensor_name for critical in ['GPU Memory', 'Package', 'GPU Core']):
             critical_sensors.append(f"{sensor_type}/{sensor_name} = {sensor_value}")
     
     # Display results
-    print("=" * 60)
+    print("=" * 80)
     print("📊 SENSOR ANALYSIS SUMMARY")
-    print("=" * 60)
+    print("=" * 80)
     print(f"Connection Method: {connection_method.upper()}")
     print(f"Total Sensors: {len(sensors)}")
     print()
     
-    print("🔧 Sensor Types:")
+    print("🔧 Sensor Types Overview:")
     for stype, count in sorted(sensor_types.items()):
         print(f"  {stype}: {count}")
     print()
     
-    print("💻 Components:")
-    for comp, count in sorted(components.items()):
-        print(f"  {comp}: {count}")
+    print("=" * 80)
+    print("💻 DETAILED COMPONENT BREAKDOWN")
+    print("=" * 80)
+    
+    for component in sorted(components.keys()):
+        print()
+        print(f"{'─' * 80}")
+        print(f"🔹 {component.upper()}")
+        print(f"{'─' * 80}")
+        
+        component_sensors = components[component]
+        for sensor_type in sorted(component_sensors.keys()):
+            sensor_list = component_sensors[sensor_type]
+            print(f"\n  📂 {sensor_type} ({len(sensor_list)} sensors):")
+            print(f"  {'─' * 76}")
+            
+            # Show all sensors in a table format
+            for idx, s in enumerate(sensor_list, 1):
+                # Format value based on sensor type
+                if sensor_type == 'Temperature':
+                    value_str = f"{s['value']:.1f}°C"
+                elif sensor_type == 'Load':
+                    value_str = f"{s['value']:.1f}%"
+                elif sensor_type == 'Fan':
+                    value_str = f"{s['value']:.0f} RPM"
+                elif sensor_type == 'Clock':
+                    value_str = f"{s['value']:.0f} MHz"
+                elif sensor_type == 'Power':
+                    value_str = f"{s['value']:.1f}W"
+                elif sensor_type == 'Data':
+                    value_str = f"{s['value']:.0f} MB"
+                else:
+                    value_str = f"{s['value']}"
+                
+                # Truncate long names
+                display_name = s['name'][:45] + '...' if len(s['name']) > 48 else s['name']
+                
+                print(f"    {idx:2}. {display_name:<48} {value_str:>12}")
+    
     print()
+    print("=" * 80)
     
     if critical_sensors:
+        print()
         print("🎯 Critical Sensors Found:")
-        for sensor in critical_sensors[:10]:  # Show first 10
-            print(f"  {sensor}")
-        if len(critical_sensors) > 10:
-            print(f"  ... and {len(critical_sensors) - 10} more")
+        for sensor in critical_sensors[:15]:  # Show first 15
+            print(f"  ✓ {sensor}")
+        if len(critical_sensors) > 15:
+            print(f"  ... and {len(critical_sensors) - 15} more")
     
     print()
     print("💡 Next Steps:")
