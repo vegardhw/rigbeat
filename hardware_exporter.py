@@ -236,44 +236,64 @@ def get_standardized_metric_name(sensor_name: str, component_type: str = '', sen
         fan_num = re.search(r'Fan (\d+)', sensor_name).group(1)
         return f"gpu_fan_{fan_num}_speed"
     
-    # GPU context-aware patterns
+    # GPU context-aware patterns - check component AND sensor type together
     elif component_type == 'gpu':
-        # GPU Temperature sensors with simple names in GPU context
-        if sensor_type.lower() == 'temperature':
-            if sensor_name == 'GPU Core' or sensor_name.lower() in ['core', 'gpu temperature']:
+        sensor_name_lower = sensor_name.lower()
+        sensor_type_lower = sensor_type.lower()
+        
+        # GPU Temperature sensors
+        if sensor_type_lower == 'temperature':
+            if sensor_name == 'GPU Core':
                 return 'gpu_temp_core'
-            elif 'memory' in sensor_name.lower():
+            elif sensor_name_lower == 'core':
+                return 'gpu_temp_core'
+            elif 'memory' in sensor_name_lower and 'junction' in sensor_name_lower:
+                return 'gpu_temp_memory_junction'
+            elif 'memory' in sensor_name_lower:
                 return 'gpu_temp_memory'
-            elif 'hot' in sensor_name.lower() or 'hotspot' in sensor_name.lower():
+            elif 'hot' in sensor_name_lower or 'hotspot' in sensor_name_lower:
                 return 'gpu_temp_hotspot'
         
         # GPU Load sensors
-        elif sensor_type.lower() == 'load':
-            if sensor_name == 'GPU Core' or sensor_name.lower() == 'core':
+        elif sensor_type_lower == 'load':
+            if sensor_name == 'GPU Core':
                 return 'gpu_load_core'
-            elif 'memory controller' in sensor_name.lower():
+            elif sensor_name_lower == 'core':
+                return 'gpu_load_core'
+            elif 'memory controller' in sensor_name_lower:
                 return 'gpu_load_memory_controller'
-            elif 'video engine' in sensor_name.lower():
+            elif 'video engine' in sensor_name_lower or 'video' in sensor_name_lower:
                 return 'gpu_load_video_engine'
-            elif '3d' in sensor_name.lower():
+            elif '3d' in sensor_name_lower or 'd3d' in sensor_name_lower:
                 return 'gpu_load_3d'
         
         # GPU Clock sensors
-        elif sensor_type.lower() == 'clock':
-            if sensor_name == 'GPU Core' or sensor_name.lower() == 'core':
+        elif sensor_type_lower == 'clock':
+            if sensor_name == 'GPU Core':
                 return 'gpu_core_clock'
-            elif sensor_name == 'GPU Memory' or sensor_name.lower() == 'memory':
+            elif sensor_name_lower == 'core':
+                return 'gpu_core_clock'
+            elif sensor_name == 'GPU Memory':
                 return 'gpu_memory_clock'
-            elif 'shader' in sensor_name.lower():
+            elif sensor_name_lower == 'memory':
+                return 'gpu_memory_clock'
+            elif 'shader' in sensor_name_lower:
                 return 'gpu_shader_clock'
         
-        # GPU Memory sensors (Data type) with simple names in GPU context
-        elif sensor_type.lower() in ['data', 'smalldata']:
-            if 'free' in sensor_name.lower():
+        # GPU Memory sensors (Data/SmallData type)
+        elif sensor_type_lower in ['data', 'smalldata']:
+            # Match exact patterns first, then fallback to partial matches
+            if sensor_name in ['GPU Memory Free', 'Memory Free', 'GPU Dedicated Memory Free']:
                 return 'gpu_memory_free'
-            elif 'used' in sensor_name.lower():
+            elif sensor_name in ['GPU Memory Used', 'Memory Used', 'GPU Dedicated Memory Used']:
                 return 'gpu_memory_used'
-            elif 'total' in sensor_name.lower():
+            elif sensor_name in ['GPU Memory Total', 'Memory Total', 'GPU Dedicated Memory Total']:
+                return 'gpu_memory_total'
+            elif 'free' in sensor_name_lower:
+                return 'gpu_memory_free'
+            elif 'used' in sensor_name_lower:
+                return 'gpu_memory_used'
+            elif 'total' in sensor_name_lower:
                 return 'gpu_memory_total'
     
     # Motherboard Temperature patterns: "Temperature #1", "Temperature #2", etc.
@@ -290,6 +310,29 @@ def get_standardized_metric_name(sensor_name: str, component_type: str = '', sen
     elif re.match(r'^Chassis Fan #\d+', sensor_name):
         fan_num = re.search(r'#(\d+)', sensor_name).group(1)
         return f"motherboard_chassis_fan_{fan_num}"
+    
+    # Memory context-aware patterns (Generic Memory component)
+    elif component_type == 'memory':
+        sensor_name_lower = sensor_name.lower()
+        sensor_type_lower = sensor_type.lower()
+        
+        # Memory Load sensors
+        if sensor_type_lower == 'load':
+            if sensor_name == 'Memory' or sensor_name_lower == 'memory':
+                return 'memory_load'
+            elif 'virtual' in sensor_name_lower:
+                return 'memory_virtual_load'
+        
+        # Memory Data sensors
+        elif sensor_type_lower in ['data', 'smalldata']:
+            if 'available' in sensor_name_lower:
+                return 'memory_available'
+            elif 'used' in sensor_name_lower:
+                return 'memory_used'
+            elif sensor_name == 'Memory Used':
+                return 'memory_used'
+            elif sensor_name == 'Memory Available':
+                return 'memory_available'
     
     # CPU context-aware patterns (for sensors that might have generic names)
     elif component_type == 'cpu':
