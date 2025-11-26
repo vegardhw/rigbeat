@@ -123,14 +123,20 @@ def get_standardized_metric_name(sensor_name: str, component_type: str = '', sen
         
         # GPU Load sensors
         elif sensor_type_lower == 'load':
-            if sensor_name == 'GPU Core' or sensor_name_lower == 'core':
+            if sensor_name == 'GPU Core' or sensor_name_lower in ['core', 'gpu core']:
                 return 'gpu_load_core'
+            elif sensor_name == 'GPU Memory' or sensor_name_lower == 'gpu memory':
+                return 'gpu_memory_load'  # Memory usage percentage
             elif 'memory controller' in sensor_name_lower:
                 return 'gpu_load_memory_controller'
-            elif 'video engine' in sensor_name_lower or 'video' in sensor_name_lower:
+            elif 'video engine' in sensor_name_lower or sensor_name_lower == 'video engine':
                 return 'gpu_load_video_engine'
             elif '3d' in sensor_name_lower or 'd3d' in sensor_name_lower:
                 return 'gpu_load_3d'
+            elif sensor_name_lower == 'bus' or sensor_name == 'GPU Bus':
+                return 'gpu_load_bus'
+            elif sensor_name_lower == 'power' or sensor_name == 'GPU Power':
+                return 'gpu_load_power'
         
         # GPU Clock sensors
         elif sensor_type_lower == 'clock':
@@ -141,9 +147,17 @@ def get_standardized_metric_name(sensor_name: str, component_type: str = '', sen
             elif 'shader' in sensor_name_lower:
                 return 'gpu_shader_clock'
         
-        # GPU Memory sensors (Data/SmallData type) - THIS IS THE KEY FIX
+        # GPU Memory sensors (Data/SmallData type) - memory sizes in MB
         elif sensor_type_lower in ['data', 'smalldata']:
-            if 'free' in sensor_name_lower:
+            # Explicit name matches first
+            if sensor_name in ['GPU Memory Free', 'D3D Dedicated Memory Free', 'D3D Shared Memory Free']:
+                return 'gpu_memory_free'
+            elif sensor_name in ['GPU Memory Used', 'D3D Dedicated Memory Used', 'D3D Shared Memory Used']:
+                return 'gpu_memory_used'
+            elif sensor_name in ['GPU Memory Total', 'D3D Dedicated Memory Total', 'D3D Shared Memory Total']:
+                return 'gpu_memory_total'
+            # Partial matches
+            elif 'free' in sensor_name_lower:
                 return 'gpu_memory_free'
             elif 'used' in sensor_name_lower:
                 return 'gpu_memory_used'
@@ -840,19 +854,23 @@ class HardwareMonitor:
                 component_type = ""
                 if self._is_cpu_sensor(parent):
                     component_type = "cpu"
-                elif "gpu" in parent.lower() or "geforce" in parent.lower() or "radeon" in parent.lower():
+                elif any(gpu in parent.lower() for gpu in ["gpu", "geforce", "nvidia", "radeon", "rtx", "gtx"]):
                     component_type = "gpu"
                 elif "motherboard" in parent.lower() or any(mb in parent.lower() for mb in ["asrock", "asus", "msi", "gigabyte"]):
                     component_type = "motherboard"
-                elif "memory" in parent.lower():
+                elif "memory" in parent.lower() or "/ram" in parent.lower():
                     component_type = "memory"
-                elif any(drive in parent.lower() for drive in ["ssd", "hdd", "wdc", "samsung", "elements"]):
+                elif any(drive in parent.lower() for drive in ["ssd", "hdd", "wdc", "samsung", "elements", "/nvme", "/hdd"]):
                     component_type = "storage"
-                elif any(net in parent.lower() for net in ["ethernet", "bluetooth", "tailscale"]):
+                elif any(net in parent.lower() for net in ["ethernet", "bluetooth", "tailscale", "/nic"]):
                     component_type = "network"
                     
                 # Get standardized metric name
                 standardized_name = get_standardized_metric_name(sensor_name, component_type, sensor_type.lower())
+                
+                # DEBUG: Log GPU Core sensors specifically to trace issues
+                if 'gpu core' in sensor_name.lower() or sensor_name == 'GPU Core':
+                    logger.info(f"🔍 DEBUG GPU Core: name='{sensor_name}', type='{sensor_type}', parent='{parent}', component='{component_type}' -> metric='{standardized_name}'")
                 
                 # Apply sensor filtering based on mode
                 if not should_include_sensor(sensor_type, component_type, self.sensor_mode):
