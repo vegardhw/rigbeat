@@ -110,27 +110,51 @@ def test_connection_methods(host="localhost", port=8085, method="auto"):
 def get_hardware_component(parent: str) -> str:
     """Extract the top-level hardware component from a sensor path.
     
-    Path structure: /computer/hardwareComponent/sensorGroup/sensorName
-    We need the first meaningful segment after /computer/ to identify the hardware.
+    Path structures vary by source:
+      HTTP API: /sensor/COMPUTERNAME/hardwareComponent/sensorGroup/sensorName
+      WMI:      /hardwareComponent/sensorGroup/sensorName
+    
+    We need to find the hardware component segment, skipping:
+      - 'sensor' prefix (HTTP API)
+      - computer name (HTTP API)
+      - 'computer' (sometimes present)
     
     This function is aligned with hardware_exporter.py's _get_hardware_component method.
     
     Examples:
-      /genericmemory/load/memory -> 'genericmemory' -> Memory
-      /genericmemory/data/virtualmemoryused -> 'genericmemory' -> Memory (NOT CPU!)
+      /sensor/WIN-PC/genericmemory/load/memory -> 'genericmemory' -> Memory
+      /sensor/WIN-PC/genericmemory/data/virtualmemoryused -> 'genericmemory' -> Memory
       /nvidiageforcertx3070/temperature/gpucore -> 'nvidiageforcertx3070' -> GPU
       /amdryzen75800x/temperature/coremax -> 'amdryzen75800x' -> CPU
     """
     if not parent:
         return "Other"
     
-    # Split path and get the first meaningful segment (skip empty and 'computer')
-    parts = [p for p in parent.lower().split('/') if p and p != 'computer']
+    # Split path into segments
+    parts = [p for p in parent.lower().split('/') if p]
     if not parts:
         return "Other"
     
-    # First segment is the hardware component
-    hw_component = parts[0]
+    # Skip known prefixes to find the hardware component
+    # HTTP API paths start with: /sensor/COMPUTERNAME/...
+    # We need to skip 'sensor' and the computer name (which varies)
+    idx = 0
+    
+    # Skip 'sensor' prefix if present
+    if idx < len(parts) and parts[idx] == 'sensor':
+        idx += 1
+        # After 'sensor', the next segment is ALWAYS the computer name - skip it unconditionally
+        if idx < len(parts):
+            idx += 1
+    # Also skip 'computer' if it appears as first segment (alternative format)
+    elif idx < len(parts) and parts[idx] == 'computer':
+        idx += 1
+    
+    # Now we should be at the hardware component
+    if idx >= len(parts):
+        return "Other"
+    
+    hw_component = parts[idx]
     
     # Classify based on hardware component name
     # GPU detection - check first to avoid false matches
