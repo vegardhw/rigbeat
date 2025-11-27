@@ -827,10 +827,6 @@ class HardwareMonitor:
                 
                 # Quick component type detection for filtering (uses top-level hardware component)
                 component_type = self._get_hardware_component(parent)
-                elif any(drive in parent.lower() for drive in ["ssd", "hdd", "wdc", "samsung", "elements"]):
-                    component_type = "storage"
-                elif any(net in parent.lower() for net in ["ethernet", "bluetooth", "tailscale"]):
-                    component_type = "network"
                 
                 if should_include_sensor(sensor_type, component_type, self.sensor_mode):
                     filtered_count += 1

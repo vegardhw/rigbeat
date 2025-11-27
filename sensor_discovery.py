@@ -281,7 +281,25 @@ def analyze_sensors_simple(sensors, connection_method):
                 elif sensor_type == 'Power':
                     value_str = f"{s['value']:.1f}W"
                 elif sensor_type == 'Data':
+                    # Data type is in Gigabytes (GB)
+                    value_str = f"{s['value']:.1f} GB"
+                elif sensor_type == 'SmallData':
+                    # SmallData type is in Megabytes (MB)
                     value_str = f"{s['value']:.0f} MB"
+                elif sensor_type == 'Voltage':
+                    value_str = f"{s['value']:.3f}V"
+                elif sensor_type == 'Current':
+                    value_str = f"{s['value']:.2f}A"
+                elif sensor_type == 'Throughput':
+                    # Throughput is typically in bytes/sec, convert to readable format
+                    if s['value'] >= 1_000_000_000:
+                        value_str = f"{s['value']/1_000_000_000:.1f} GB/s"
+                    elif s['value'] >= 1_000_000:
+                        value_str = f"{s['value']/1_000_000:.1f} MB/s"
+                    elif s['value'] >= 1_000:
+                        value_str = f"{s['value']/1_000:.1f} KB/s"
+                    else:
+                        value_str = f"{s['value']:.0f} B/s"
                 else:
                     value_str = f"{s['value']}"
                 
