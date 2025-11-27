@@ -171,6 +171,9 @@ def analyze_sensors_simple(sensors, connection_method):
     components = defaultdict(lambda: defaultdict(list))  # component -> sensor_type -> [sensors]
     critical_sensors = []
     
+    # DEBUG: Track unique parent paths and their detected components
+    parent_to_component = {}
+    
     for sensor in sensors:
         sensor_type = sensor.get('SensorType', 'Unknown')
         sensor_name = sensor.get('Name', 'Unknown')
@@ -185,6 +188,10 @@ def analyze_sensors_simple(sensors, connection_method):
         # We extract the first meaningful segment to classify the hardware
         
         component = get_hardware_component(parent)
+        
+        # DEBUG: Track path -> component mapping
+        if parent not in parent_to_component:
+            parent_to_component[parent] = component
         
         # Store sensor details by component and type
         components[component][sensor_type].append({
@@ -203,6 +210,16 @@ def analyze_sensors_simple(sensors, connection_method):
     print("=" * 80)
     print(f"Connection Method: {connection_method.upper()}")
     print(f"Total Sensors: {len(sensors)}")
+    print()
+    
+    # DEBUG: Show parent path to component mapping
+    print("🔍 DEBUG: Parent Path → Component Mapping:")
+    for path, comp in sorted(parent_to_component.items()):
+        # Extract first segment for clarity
+        parts = [p for p in path.lower().split('/') if p and p != 'computer']
+        hw_segment = parts[0] if parts else "(empty)"
+        print(f"  {path}")
+        print(f"    → hw_segment: '{hw_segment}' → Component: {comp}")
     print()
     
     print("🔧 Sensor Types Overview:")
