@@ -735,12 +735,13 @@ class HardwareMonitor:
             "/cpu",          # Generic CPU path
             "/amdcpu",       # AMD-specific path
             "/intelcpu",     # Intel-specific path
+            "/virtual",      # Virtual machine CPU
             "processor",     # Alternative CPU naming
             "ryzen",         # AMD Ryzen series
             "threadripper",  # AMD Threadripper
             "epyc",          # AMD EPYC
             "xeon",          # Intel Xeon
-            "core i",        # Intel Core iX series (more specific than just "core")
+            "core i",        # Intel Core iX series
         ]
 
         return any(pattern in parent_lower for pattern in cpu_patterns)

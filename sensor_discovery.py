@@ -123,19 +123,24 @@ def analyze_sensors_simple(sensors, connection_method):
         
         sensor_types[sensor_type] += 1
         
-        # Identify component type
+        # Identify component type (aligned with hardware_exporter.py logic)
         parent_lower = parent.lower()
-        if 'cpu' in parent_lower or 'amd' in parent_lower or 'intel' in parent_lower:
-            component = 'CPU'
-        elif 'gpu' in parent_lower or 'nvidia' in parent_lower or 'geforce' in parent_lower:
+        
+        # GPU detection patterns (check BEFORE CPU to avoid misidentification)
+        gpu_indicators = ["gpu", "geforce", "nvidia", "radeon", "rtx", "gtx", "quadro"]
+        cpu_indicators = ["/cpu", "/amdcpu", "/intelcpu", "/virtual", "processor", "ryzen", "threadripper", "epyc", "xeon", "core i"]
+        
+        if any(gpu in parent_lower for gpu in gpu_indicators):
             component = 'GPU'
-        elif 'motherboard' in parent_lower or any(mb in parent_lower for mb in ['asus', 'msi', 'gigabyte', 'asrock']):
+        elif any(cpu in parent_lower for cpu in cpu_indicators):
+            component = 'CPU'
+        elif 'motherboard' in parent_lower or any(mb in parent_lower for mb in ['asus', 'msi', 'gigabyte', 'asrock', 'nuvoton', 'nct', '/lpc']):
             component = 'Motherboard'
-        elif 'memory' in parent_lower:
+        elif 'memory' in parent_lower or '/ram' in parent_lower:
             component = 'Memory'
-        elif any(drive in parent_lower for drive in ['ssd', 'hdd', 'storage']):
+        elif any(drive in parent_lower for drive in ['ssd', 'hdd', 'storage', '/nvme', '/hdd', 'samsung', 'wdc']):
             component = 'Storage'
-        elif any(net in parent_lower for net in ['ethernet', 'network', 'nic']):
+        elif any(net in parent_lower for net in ['ethernet', 'network', 'nic', '/nic', 'bluetooth', 'tailscale']):
             component = 'Network'
         else:
             component = 'Other'
