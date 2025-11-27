@@ -32,9 +32,9 @@ SENSOR_FILTER_CONFIG = {
     # Essential sensors (always included) - core gaming/monitoring metrics
     'essential': {
         'cpu': ['Temperature', 'Load', 'Power'],      # CPU temps, loads, power (includes package power)
-        'gpu': ['Temperature', 'Load', 'Power', 'Fan', 'Clock', 'Data'],  # GPU essentials + memory (includes core temp, memory used/free/total)
+        'gpu': ['Temperature', 'Load', 'Power', 'Fan', 'Clock', 'Data', 'SmallData'],  # GPU essentials + memory (includes core temp, memory used/free/total)
         'motherboard': ['Temperature', 'Fan'],         # System temps and cooling
-        'memory': ['Data'],                            # Main RAM usage
+        'memory': ['Data', 'SmallData'],               # Main RAM usage (Data=GB, SmallData=MB)
     },
     
     # Extended sensors (optional) - detailed monitoring
@@ -1034,7 +1034,7 @@ class HardwareMonitor:
 def main():
     parser = argparse.ArgumentParser(description='Rigbeat - Prometheus Exporter')
     parser.add_argument('--port', type=int, default=9182, help='Port to expose metrics (default: 9182)')
-    parser.add_argument('--interval', type=int, default=15, help='Update interval in seconds (default: 15, use 2-5 for real-time gaming or 10+ for general monitoring)')
+    parser.add_argument('--interval', type=int, default=2, help='Update interval in seconds (default: 2, use 2-5 for real-time gaming or 10+ for general monitoring)')
     parser.add_argument('--logfile', type=str, help='Log file path (e.g., rigbeat.log)')
     parser.add_argument('--debug', action='store_true', help='Enable debug logging')
     parser.add_argument('--http-host', type=str, default='localhost', help='LibreHardwareMonitor HTTP API host (default: localhost)')
