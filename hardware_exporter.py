@@ -188,12 +188,16 @@ def get_standardized_metric_name(sensor_name: str, component_type: str = '', sen
             elif 'virtual' in sensor_name_lower:
                 return 'memory_virtual_load'
         
-        # Memory Data sensors
+        # Memory Data sensors - distinguish physical vs virtual memory
         elif sensor_type_lower in ['data', 'smalldata']:
+            is_virtual = 'virtual' in sensor_name_lower
+            
             if 'available' in sensor_name_lower:
-                return 'memory_available'
+                return 'memory_virtual_available' if is_virtual else 'memory_available'
             elif 'used' in sensor_name_lower:
-                return 'memory_used'
+                return 'memory_virtual_used' if is_virtual else 'memory_used'
+            elif 'total' in sensor_name_lower:
+                return 'memory_virtual_total' if is_virtual else 'memory_total'
     
     # CPU context-aware patterns
     elif component_type == 'cpu':
@@ -718,33 +722,62 @@ class HardwareMonitor:
             logger.debug(f"Could not parse sensor value: '{value_str}' -> '{cleaned}'")
             return None
 
-    def _is_cpu_sensor(self, parent: str) -> bool:
-        """Check if sensor belongs to CPU (Intel, AMD, or other)"""
-        if not parent:
-            return False
-
-        parent_lower = parent.lower()
+    def _get_hardware_component(self, parent: str) -> str:
+        """Extract the top-level hardware component from a sensor path.
         
-        # Exclude GPU paths first - GPU sensors should never be detected as CPU
-        gpu_indicators = ["gpu", "geforce", "nvidia", "radeon", "rx ", "rtx", "gtx", "quadro"]
-        if any(gpu in parent_lower for gpu in gpu_indicators):
-            return False
+        Path structure: /computer/hardwareComponent/sensorGroup/sensorName
+        We need the first meaningful segment after /computer/ to identify the hardware.
+        
+        Examples:
+          /genericmemory/load/memory -> 'genericmemory' -> Memory
+          /genericmemory/data/virtualmemoryused -> 'genericmemory' -> Memory (NOT CPU!)
+          /nvidiageforcertx3070/temperature/gpucore -> 'nvidiageforcertx3070' -> GPU
+          /amdryzen75800x/temperature/coremax -> 'amdryzen75800x' -> CPU
+        """
+        if not parent:
+            return "unknown"
+        
+        # Split path and get the first meaningful segment (skip empty and 'computer')
+        parts = [p for p in parent.lower().split('/') if p and p != 'computer']
+        if not parts:
+            return "unknown"
+        
+        # First segment is the hardware component
+        hw_component = parts[0]
+        
+        # Classify based on hardware component name
+        # GPU detection - check first to avoid false matches
+        if any(gpu in hw_component for gpu in ["gpu", "nvidia", "geforce", "radeon", "rtx", "gtx", "quadro", "amd rx"]):
+            return "gpu"
+        
+        # CPU detection
+        if any(cpu in hw_component for cpu in ["cpu", "amdcpu", "intelcpu", "ryzen", "threadripper", "epyc", "xeon", "corei", "processor"]):
+            return "cpu"
+        # Special case: Virtual CPU in VMs (the hardware component is literally "virtual")
+        if hw_component == "virtual" or hw_component.startswith("virtualcpu"):
+            return "cpu"
+        
+        # Memory detection - includes "Generic Memory" -> "genericmemory"
+        if any(mem in hw_component for mem in ["memory", "ram", "genericmemory"]):
+            return "memory"
+        
+        # Motherboard detection
+        if any(mb in hw_component for mb in ["motherboard", "mainboard", "asrock", "asus", "msi", "gigabyte", "nuvoton", "nct", "lpc"]):
+            return "motherboard"
+        
+        # Storage detection
+        if any(drive in hw_component for drive in ["ssd", "hdd", "nvme", "samsung", "wdc", "seagate", "toshiba", "storage", "disk"]):
+            return "storage"
+        
+        # Network detection
+        if any(net in hw_component for net in ["ethernet", "network", "nic", "bluetooth", "wifi", "tailscale"]):
+            return "network"
+        
+        return "other"
 
-        # Comprehensive CPU detection patterns
-        cpu_patterns = [
-            "/cpu",          # Generic CPU path
-            "/amdcpu",       # AMD-specific path
-            "/intelcpu",     # Intel-specific path
-            "/virtual",      # Virtual machine CPU
-            "processor",     # Alternative CPU naming
-            "ryzen",         # AMD Ryzen series
-            "threadripper",  # AMD Threadripper
-            "epyc",          # AMD EPYC
-            "xeon",          # Intel Xeon
-            "core i",        # Intel Core iX series
-        ]
-
-        return any(pattern in parent_lower for pattern in cpu_patterns)
+    def _is_cpu_sensor(self, parent: str) -> bool:
+        """Check if sensor belongs to CPU based on top-level hardware component"""
+        return self._get_hardware_component(parent) == "cpu"
 
     def update_metrics(self):
         """Update all Prometheus metrics"""
@@ -768,16 +801,8 @@ class HardwareMonitor:
                     sensor_type = getattr(sensor, 'SensorType', '')
                     parent = getattr(sensor, 'Parent', '') or ''
                 
-                # Quick component type detection for filtering
-                component_type = ""
-                if self._is_cpu_sensor(parent):
-                    component_type = "cpu"
-                elif "gpu" in parent.lower() or "geforce" in parent.lower() or "radeon" in parent.lower():
-                    component_type = "gpu"
-                elif "motherboard" in parent.lower() or any(mb in parent.lower() for mb in ["asrock", "asus", "msi", "gigabyte"]):
-                    component_type = "motherboard"
-                elif "memory" in parent.lower():
-                    component_type = "memory"
+                # Quick component type detection for filtering (uses top-level hardware component)
+                component_type = self._get_hardware_component(parent)
                 elif any(drive in parent.lower() for drive in ["ssd", "hdd", "wdc", "samsung", "elements"]):
                     component_type = "storage"
                 elif any(net in parent.lower() for net in ["ethernet", "bluetooth", "tailscale"]):
@@ -851,20 +876,9 @@ class HardwareMonitor:
                 if value < 0 and sensor_type in ["Temperature", "Load", "Clock", "Power", "Fan"]:
                     continue
                 
-                # Determine component type for better metric naming
-                component_type = ""
-                if self._is_cpu_sensor(parent):
-                    component_type = "cpu"
-                elif any(gpu in parent.lower() for gpu in ["gpu", "geforce", "nvidia", "radeon", "rtx", "gtx"]):
-                    component_type = "gpu"
-                elif "motherboard" in parent.lower() or any(mb in parent.lower() for mb in ["asrock", "asus", "msi", "gigabyte"]):
-                    component_type = "motherboard"
-                elif "memory" in parent.lower() or "/ram" in parent.lower():
-                    component_type = "memory"
-                elif any(drive in parent.lower() for drive in ["ssd", "hdd", "wdc", "samsung", "elements", "/nvme", "/hdd"]):
-                    component_type = "storage"
-                elif any(net in parent.lower() for net in ["ethernet", "bluetooth", "tailscale", "/nic"]):
-                    component_type = "network"
+                # Determine component type using top-level hardware component extraction
+                # This prevents false matches like "virtualmemory" matching the "/virtual" CPU pattern
+                component_type = self._get_hardware_component(parent)
                     
                 # Get standardized metric name
                 standardized_name = get_standardized_metric_name(sensor_name, component_type, sensor_type.lower())

@@ -107,6 +107,62 @@ def test_connection_methods(host="localhost", port=8085, method="auto"):
     analyze_sensors_simple(sensors, connection_method)
 
 
+def get_hardware_component(parent: str) -> str:
+    """Extract the top-level hardware component from a sensor path.
+    
+    Path structure: /computer/hardwareComponent/sensorGroup/sensorName
+    We need the first meaningful segment after /computer/ to identify the hardware.
+    
+    This function is aligned with hardware_exporter.py's _get_hardware_component method.
+    
+    Examples:
+      /genericmemory/load/memory -> 'genericmemory' -> Memory
+      /genericmemory/data/virtualmemoryused -> 'genericmemory' -> Memory (NOT CPU!)
+      /nvidiageforcertx3070/temperature/gpucore -> 'nvidiageforcertx3070' -> GPU
+      /amdryzen75800x/temperature/coremax -> 'amdryzen75800x' -> CPU
+    """
+    if not parent:
+        return "Other"
+    
+    # Split path and get the first meaningful segment (skip empty and 'computer')
+    parts = [p for p in parent.lower().split('/') if p and p != 'computer']
+    if not parts:
+        return "Other"
+    
+    # First segment is the hardware component
+    hw_component = parts[0]
+    
+    # Classify based on hardware component name
+    # GPU detection - check first to avoid false matches
+    if any(gpu in hw_component for gpu in ["gpu", "nvidia", "geforce", "radeon", "rtx", "gtx", "quadro", "amd rx"]):
+        return "GPU"
+    
+    # CPU detection
+    if any(cpu in hw_component for cpu in ["cpu", "amdcpu", "intelcpu", "ryzen", "threadripper", "epyc", "xeon", "corei", "processor"]):
+        return "CPU"
+    # Special case: Virtual CPU in VMs (the hardware component is literally "virtual")
+    if hw_component == "virtual" or hw_component.startswith("virtualcpu"):
+        return "CPU"
+    
+    # Memory detection - includes "Generic Memory" -> "genericmemory"
+    if any(mem in hw_component for mem in ["memory", "ram", "genericmemory"]):
+        return "Memory"
+    
+    # Motherboard detection
+    if any(mb in hw_component for mb in ["motherboard", "mainboard", "asrock", "asus", "msi", "gigabyte", "nuvoton", "nct", "lpc"]):
+        return "Motherboard"
+    
+    # Storage detection
+    if any(drive in hw_component for drive in ["ssd", "hdd", "nvme", "samsung", "wdc", "seagate", "toshiba", "storage", "disk"]):
+        return "Storage"
+    
+    # Network detection
+    if any(net in hw_component for net in ["ethernet", "network", "nic", "bluetooth", "wifi", "tailscale"]):
+        return "Network"
+    
+    return "Other"
+
+
 def analyze_sensors_simple(sensors, connection_method):
     """Simple sensor analysis for both HTTP and WMI data"""
     
@@ -123,27 +179,12 @@ def analyze_sensors_simple(sensors, connection_method):
         
         sensor_types[sensor_type] += 1
         
-        # Identify component type (aligned with hardware_exporter.py logic)
-        parent_lower = parent.lower()
+        # Identify component type using TOP-LEVEL hardware component extraction
+        # This prevents false matches like "virtualmemory" matching the "/virtual" CPU pattern
+        # Path structure: /computer/hardwareComponent/sensorGroup/sensorName
+        # We extract the first meaningful segment to classify the hardware
         
-        # GPU detection patterns (check BEFORE CPU to avoid misidentification)
-        gpu_indicators = ["gpu", "geforce", "nvidia", "radeon", "rtx", "gtx", "quadro"]
-        cpu_indicators = ["/cpu", "/amdcpu", "/intelcpu", "/virtual", "processor", "ryzen", "threadripper", "epyc", "xeon", "core i"]
-        
-        if any(gpu in parent_lower for gpu in gpu_indicators):
-            component = 'GPU'
-        elif any(cpu in parent_lower for cpu in cpu_indicators):
-            component = 'CPU'
-        elif 'motherboard' in parent_lower or any(mb in parent_lower for mb in ['asus', 'msi', 'gigabyte', 'asrock', 'nuvoton', 'nct', '/lpc']):
-            component = 'Motherboard'
-        elif 'memory' in parent_lower or '/ram' in parent_lower:
-            component = 'Memory'
-        elif any(drive in parent_lower for drive in ['ssd', 'hdd', 'storage', '/nvme', '/hdd', 'samsung', 'wdc']):
-            component = 'Storage'
-        elif any(net in parent_lower for net in ['ethernet', 'network', 'nic', '/nic', 'bluetooth', 'tailscale']):
-            component = 'Network'
-        else:
-            component = 'Other'
+        component = get_hardware_component(parent)
         
         # Store sensor details by component and type
         components[component][sensor_type].append({
