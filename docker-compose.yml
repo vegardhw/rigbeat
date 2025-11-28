@@ -29,7 +29,7 @@ services:
       - "3000:3000"
     volumes:
       - grafana-data:/var/lib/grafana
-      - ./grafana-dashboard.json:/etc/grafana/provisioning/dashboards/pc-hardware.json
+      - ./grafana_dashboard.json:/etc/grafana/provisioning/dashboards/pc-hardware.json
     environment:
       - GF_SECURITY_ADMIN_USER=admin
       - GF_SECURITY_ADMIN_PASSWORD=admin
@@ -80,4 +80,4 @@ networks:
 # 3. First time setup:
 #    - docker-compose up -d
 #    - Add Prometheus datasource in Grafana (http://prometheus:9090)
-#    - Import dashboard from grafana-dashboard.json
+#    - Import dashboard from grafana_dashboard.json

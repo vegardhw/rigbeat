@@ -903,10 +903,6 @@ class HardwareMonitor:
                 # Get standardized metric name
                 standardized_name = get_standardized_metric_name(sensor_name, component_type, sensor_type.lower())
                 
-                # DEBUG: Log GPU Core sensors specifically to trace issues
-                if 'gpu core' in sensor_name.lower() or sensor_name == 'GPU Core':
-                    logger.info(f"🔍 DEBUG GPU Core: name='{sensor_name}', type='{sensor_type}', parent='{parent}', component='{component_type}' -> metric='{standardized_name}'")
-                
                 # Apply sensor filtering based on mode
                 if not should_include_sensor(sensor_type, component_type, self.sensor_mode):
                     logger.debug(f"Filtered out sensor: {sensor_type}/{sensor_name} (mode: {self.sensor_mode})")
@@ -919,15 +915,10 @@ class HardwareMonitor:
                 
                 # Set metric value directly (no labels needed - metric name is descriptive)
                 try:
-                    # Apply unit conversions for specific sensor types
-                    converted_value = value
-                    if sensor_type in ['Data', 'SmallData'] and 'memory' in standardized_name:
-                        # Convert memory values: if >1000 assume MB, convert to GB
-                        if value > 1000:
-                            converted_value = round(value / 1024, 2)
-                    
-                    metric.set(converted_value)
-                    logger.debug(f"✅ Set metric {standardized_name}: {converted_value}")
+                    # Pass through raw values - let Grafana handle unit conversions
+                    # SmallData = MB, Data = GB (as reported by LibreHardwareMonitor)
+                    metric.set(value)
+                    logger.debug(f"✅ Set metric {standardized_name}: {value}")
                     
                 except Exception as e:
                     logger.warning(f"Failed to set metric {standardized_name}: {e}")
