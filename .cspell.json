@@ -8,7 +8,8 @@
         ".vscode",
         "**/*.py",
         "**/*.json",
-        "**/*.ps1"
+        "**/*.ps1",
+        "./requirements.txt"
     ],
     "words": [
         "Alertmanager",

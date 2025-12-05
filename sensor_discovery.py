@@ -10,153 +10,425 @@ they map to Prometheus metrics in Rigbeat.
 Features:
 - 🔍 Complete hardware component analysis (CPU, GPU, motherboard, storage, network)
 - 🌡️ Sensor type breakdown (temperature, load, clock, power, fan, voltage, etc.)
-- 🌬️ Dedicated fan analysis with RPM status monitoring
+- 🌬️ Dedicated fan analysis with RPM status monitoring  
 - 📊 Sensor count statistics across all hardware
 - 🎯 Standardized metric name mapping preview
-- ⚡ HTTP API structure investigation
+- ⚡ HTTP API structure investigation (preferred)
+- 🔄 WMI fallback support for compatibility
 
 Usage:
-    python3 sensor_discovery.py [host] [port]
+    python3 sensor_discovery.py [options]
 
 Examples:
-    python3 sensor_discovery.py                    # Local LibreHardwareMonitor
-    python3 sensor_discovery.py 192.168.1.100     # Remote system
-    python3 sensor_discovery.py localhost 8080     # Custom port
+    python3 sensor_discovery.py                          # Auto-detect (HTTP preferred)
+    python3 sensor_discovery.py --method http            # Force HTTP API only
+    python3 sensor_discovery.py --method wmi             # Force WMI only
+    python3 sensor_discovery.py --host 192.168.1.100     # Remote system
+    python3 sensor_discovery.py --port 8080              # Custom port
 
 Requirements:
-- LibreHardwareMonitor running with HTTP server enabled
+- LibreHardwareMonitor running with HTTP server enabled (preferred) or WMI enabled (fallback)
 - Python 3.6+ with 'requests' package
+- For WMI fallback: pip install pywin32
 """
 
 import requests
 import json
 import sys
+import argparse
+from collections import defaultdict
+
+# Try to import WMI for fallback (optional)
+try:
+    import wmi
+    WMI_AVAILABLE = True
+except ImportError:
+    WMI_AVAILABLE = False
+    wmi = None
+
+def test_connection_methods(host="localhost", port=8085, method="auto"):
+    """Test both HTTP API and WMI methods for LibreHardwareMonitor"""
+    
+    print(f"🔍 Rigbeat Sensor Discovery Tool v0.1.3")
+    print("=" * 50)
+    print()
+    
+    sensors = []
+    connection_method = "none"
+    
+    # Try HTTP API first (if available and not explicitly disabled)
+    if method in ["auto", "http"]:
+        print(f"🔌 Testing LibreHardwareMonitor HTTP API at {host}:{port}...")
+        http_sensors = test_http_api(host, port)
+        if http_sensors:
+            sensors = http_sensors
+            connection_method = "http"
+            print("✅ HTTP API connection successful")
+            print("🚀 Performance optimized mode enabled")
+        else:
+            print("❌ HTTP API not available")
+            if method == "http":
+                print("💡 Enable HTTP server in LibreHardwareMonitor Options → Web Server")
+                return
+            else:
+                print("🔄 Falling back to WMI...")
+        print()
+    
+    # Fallback to WMI (if HTTP failed or method specified)
+    if not sensors and method in ["auto", "wmi"] and WMI_AVAILABLE:
+        print("🔍 Testing LibreHardwareMonitor WMI...")
+        wmi_sensors = test_wmi_api()
+        if wmi_sensors:
+            sensors = wmi_sensors
+            connection_method = "wmi"
+            print("✅ WMI connection successful")
+            print("⚠️  Using WMI fallback - consider enabling HTTP API for better performance")
+        else:
+            print("❌ WMI connection failed")
+        print()
+    elif not sensors and method in ["auto", "wmi"] and not WMI_AVAILABLE:
+        print("❌ WMI not available - install with: pip install pywin32")
+        print()
+    
+    # Error handling
+    if not sensors:
+        print("❌ ERROR: No connection method available")
+        print()
+        print("Requirements:")
+        print("  1. LibreHardwareMonitor must be running as Administrator")
+        if method != "wmi":
+            print("  2. Enable HTTP server in LibreHardwareMonitor Options → Web Server")
+        if method != "http":
+            print("  3. Or enable WMI in LibreHardwareMonitor Options → WMI Provider")
+        return
+    
+    # Analyze sensors using existing analysis function
+    print(f"📊 Analyzing {len(sensors)} sensors via {connection_method.upper()}...")
+    analyze_sensors_simple(sensors, connection_method)
+
+
+def get_hardware_component(parent: str) -> str:
+    """Extract the top-level hardware component from a sensor path.
+    
+    Path structures vary by source:
+      HTTP API: /sensor/COMPUTERNAME/hardwareComponent/sensorGroup/sensorName
+      WMI:      /hardwareComponent/sensorGroup/sensorName
+    
+    We need to find the hardware component segment, skipping:
+      - 'sensor' prefix (HTTP API)
+      - computer name (HTTP API)
+      - 'computer' (sometimes present)
+    
+    This function is aligned with hardware_exporter.py's _get_hardware_component method.
+    
+    Examples:
+      /sensor/WIN-PC/genericmemory/load/memory -> 'genericmemory' -> Memory
+      /sensor/WIN-PC/genericmemory/data/virtualmemoryused -> 'genericmemory' -> Memory
+      /nvidiageforcertx3070/temperature/gpucore -> 'nvidiageforcertx3070' -> GPU
+      /amdryzen75800x/temperature/coremax -> 'amdryzen75800x' -> CPU
+    """
+    if not parent:
+        return "Other"
+    
+    # Split path into segments
+    parts = [p for p in parent.lower().split('/') if p]
+    if not parts:
+        return "Other"
+    
+    # Skip known prefixes to find the hardware component
+    # HTTP API paths start with: /sensor/COMPUTERNAME/...
+    # We need to skip 'sensor' and the computer name (which varies)
+    idx = 0
+    
+    # Skip 'sensor' prefix if present
+    if idx < len(parts) and parts[idx] == 'sensor':
+        idx += 1
+        # After 'sensor', the next segment is ALWAYS the computer name - skip it unconditionally
+        if idx < len(parts):
+            idx += 1
+    # Also skip 'computer' if it appears as first segment (alternative format)
+    elif idx < len(parts) and parts[idx] == 'computer':
+        idx += 1
+    
+    # Now we should be at the hardware component
+    if idx >= len(parts):
+        return "Other"
+    
+    hw_component = parts[idx]
+    
+    # Classify based on hardware component name
+    # GPU detection - check first to avoid false matches
+    if any(gpu in hw_component for gpu in ["gpu", "nvidia", "geforce", "radeon", "rtx", "gtx", "quadro", "amd rx"]):
+        return "GPU"
+    
+    # CPU detection
+    if any(cpu in hw_component for cpu in ["cpu", "amdcpu", "intelcpu", "ryzen", "threadripper", "epyc", "xeon", "corei", "processor"]):
+        return "CPU"
+    # Special case: Virtual CPU in VMs (the hardware component is literally "virtual")
+    if hw_component == "virtual" or hw_component.startswith("virtualcpu"):
+        return "CPU"
+    
+    # Memory detection - includes "Generic Memory" -> "genericmemory"
+    if any(mem in hw_component for mem in ["memory", "ram", "genericmemory"]):
+        return "Memory"
+    
+    # Motherboard detection
+    if any(mb in hw_component for mb in ["motherboard", "mainboard", "asrock", "asus", "msi", "gigabyte", "nuvoton", "nct", "lpc"]):
+        return "Motherboard"
+    
+    # Storage detection
+    if any(drive in hw_component for drive in ["ssd", "hdd", "nvme", "samsung", "wdc", "seagate", "toshiba", "storage", "disk"]):
+        return "Storage"
+    
+    # Network detection
+    if any(net in hw_component for net in ["ethernet", "network", "nic", "bluetooth", "wifi", "tailscale"]):
+        return "Network"
+    
+    return "Other"
+
+
+def analyze_sensors_simple(sensors, connection_method):
+    """Simple sensor analysis for both HTTP and WMI data"""
+    
+    # Group sensors by type and component
+    sensor_types = defaultdict(int)
+    components = defaultdict(lambda: defaultdict(list))  # component -> sensor_type -> [sensors]
+    critical_sensors = []
+    
+    # DEBUG: Track unique parent paths and their detected components
+    parent_to_component = {}
+    
+    for sensor in sensors:
+        sensor_type = sensor.get('SensorType', 'Unknown')
+        sensor_name = sensor.get('Name', 'Unknown')
+        sensor_value = sensor.get('Value', 0)
+        parent = sensor.get('Parent', 'Unknown')
+        
+        sensor_types[sensor_type] += 1
+        
+        # Identify component type using TOP-LEVEL hardware component extraction
+        # This prevents false matches like "virtualmemory" matching the "/virtual" CPU pattern
+        # Path structure: /computer/hardwareComponent/sensorGroup/sensorName
+        # We extract the first meaningful segment to classify the hardware
+        
+        component = get_hardware_component(parent)
+        
+        # DEBUG: Track path -> component mapping
+        if parent not in parent_to_component:
+            parent_to_component[parent] = component
+        
+        # Store sensor details by component and type
+        components[component][sensor_type].append({
+            'name': sensor_name,
+            'value': sensor_value,
+            'parent': parent
+        })
+        
+        # Track critical sensors mentioned by user
+        if any(critical in sensor_name for critical in ['GPU Memory', 'Package', 'GPU Core']):
+            critical_sensors.append(f"{sensor_type}/{sensor_name} = {sensor_value}")
+    
+    # Display results
+    print("=" * 80)
+    print("📊 SENSOR ANALYSIS SUMMARY")
+    print("=" * 80)
+    print(f"Connection Method: {connection_method.upper()}")
+    print(f"Total Sensors: {len(sensors)}")
+    print()
+    
+    # DEBUG: Show parent path to component mapping
+    print("🔍 DEBUG: Parent Path → Component Mapping:")
+    for path, comp in sorted(parent_to_component.items()):
+        # Extract first segment for clarity
+        parts = [p for p in path.lower().split('/') if p and p != 'computer']
+        hw_segment = parts[0] if parts else "(empty)"
+        print(f"  {path}")
+        print(f"    → hw_segment: '{hw_segment}' → Component: {comp}")
+    print()
+    
+    print("🔧 Sensor Types Overview:")
+    for stype, count in sorted(sensor_types.items()):
+        print(f"  {stype}: {count}")
+    print()
+    
+    print("=" * 80)
+    print("💻 DETAILED COMPONENT BREAKDOWN")
+    print("=" * 80)
+    
+    for component in sorted(components.keys()):
+        print()
+        print(f"{'─' * 80}")
+        print(f"🔹 {component.upper()}")
+        print(f"{'─' * 80}")
+        
+        component_sensors = components[component]
+        for sensor_type in sorted(component_sensors.keys()):
+            sensor_list = component_sensors[sensor_type]
+            print(f"\n  📂 {sensor_type} ({len(sensor_list)} sensors):")
+            print(f"  {'─' * 76}")
+            
+            # Show all sensors in a table format
+            for idx, s in enumerate(sensor_list, 1):
+                # Format value based on sensor type
+                if sensor_type == 'Temperature':
+                    value_str = f"{s['value']:.1f}°C"
+                elif sensor_type == 'Load':
+                    value_str = f"{s['value']:.1f}%"
+                elif sensor_type == 'Fan':
+                    value_str = f"{s['value']:.0f} RPM"
+                elif sensor_type == 'Clock':
+                    value_str = f"{s['value']:.0f} MHz"
+                elif sensor_type == 'Power':
+                    value_str = f"{s['value']:.1f}W"
+                elif sensor_type == 'Data':
+                    # Data type is in Gigabytes (GB)
+                    value_str = f"{s['value']:.1f} GB"
+                elif sensor_type == 'SmallData':
+                    # SmallData type is in Megabytes (MB)
+                    value_str = f"{s['value']:.0f} MB"
+                elif sensor_type == 'Voltage':
+                    value_str = f"{s['value']:.3f}V"
+                elif sensor_type == 'Current':
+                    value_str = f"{s['value']:.2f}A"
+                elif sensor_type == 'Throughput':
+                    # Throughput is typically in bytes/sec, convert to readable format
+                    if s['value'] >= 1_000_000_000:
+                        value_str = f"{s['value']/1_000_000_000:.1f} GB/s"
+                    elif s['value'] >= 1_000_000:
+                        value_str = f"{s['value']/1_000_000:.1f} MB/s"
+                    elif s['value'] >= 1_000:
+                        value_str = f"{s['value']/1_000:.1f} KB/s"
+                    else:
+                        value_str = f"{s['value']:.0f} B/s"
+                else:
+                    value_str = f"{s['value']}"
+                
+                # Truncate long names
+                display_name = s['name'][:45] + '...' if len(s['name']) > 48 else s['name']
+                
+                print(f"    {idx:2}. {display_name:<48} {value_str:>12}")
+    
+    print()
+    print("=" * 80)
+    
+    if critical_sensors:
+        print()
+        print("🎯 Critical Sensors Found:")
+        for sensor in critical_sensors[:15]:  # Show first 15
+            print(f"  ✓ {sensor}")
+        if len(critical_sensors) > 15:
+            print(f"  ... and {len(critical_sensors) - 15} more")
+    
+    print()
+    print("💡 Next Steps:")
+    print("  1. Run 'python hardware_exporter.py --debug' to see detailed sensor processing")
+    print("  2. Check http://localhost:9182/metrics for live Prometheus metrics")
+    if connection_method == "wmi":
+        print("  3. Consider enabling HTTP server for better performance")
+
+
+def test_wmi_api():
+    """Test LibreHardwareMonitor WMI interface"""
+    if not WMI_AVAILABLE:
+        return []
+    
+    try:
+        w = wmi.WMI(namespace="root\\LibreHardwareMonitor")
+        sensors = w.Sensor()
+        
+        # Convert WMI sensors to consistent format
+        converted_sensors = []
+        for sensor in sensors:
+            converted_sensors.append({
+                'Name': getattr(sensor, 'Name', 'Unknown'),
+                'SensorType': getattr(sensor, 'SensorType', 'Unknown'),
+                'Value': getattr(sensor, 'Value', 0),
+                'Parent': getattr(sensor, 'Parent', 'Unknown')
+            })
+        
+        return converted_sensors
+        
+    except Exception as e:
+        print(f"WMI Error: {e}")
+        return []
+
 
 def test_http_api(host="localhost", port=8085):
-    """Test LibreHardwareMonitor HTTP API and show structure"""
+    """Test LibreHardwareMonitor HTTP API and return sensors"""
 
     url = f"http://{host}:{port}/data.json"
-    print(f"🔍 Rigbeat Sensor Discovery Tool")
-    print(f"📡 Connecting to LibreHardwareMonitor at {url}")
-    print("=" * 80)
 
     try:
         response = requests.get(url, timeout=10)
         if response.status_code == 200:
             data = response.json()
-            print(f"✅ HTTP API Response received")
-            print(f"📊 Response size: {len(response.text)} characters")
-            print()
-
-            # Show top-level structure
-            if isinstance(data, dict):
-                print(f"🔍 Top-level keys: {list(data.keys())}")
-                if "Text" in data:
-                    print(f"📝 Root Text: {data['Text']}")
-                if "Children" in data:
-                    print(f"👥 Root Children: {len(data['Children'])}")
-                    print()
-
-                    # Show first few hardware components
-                    print("🖥️  Hardware Components:")
-                    for i, child in enumerate(data["Children"][:10]):  # Show up to 10 components
-                        if isinstance(child, dict) and "Text" in child:
-                            child_text = child["Text"]
-                            child_children = len(child.get("Children", []))
-                            print(f"  {i+1}. {child_text} ({child_children} children)")
-
-                            # Explore each hardware component for sensors (not just the first one!)
-                            if "Children" in child:
-                                print(f"     🔍 Exploring {child_text}...")
-
-                                # Check if this hardware has direct sensors or intermediate levels
-                                direct_sensors = count_direct_sensors(child)
-                                if direct_sensors > 0:
-                                    print(f"       📊 {direct_sensors} sensors at this level")
-                                    sensor_count = find_and_show_sensors(child, depth=1, max_sensors=20, sensors_found=0)  # Show more sensors
-                                else:
-                                    # Look for intermediate levels (like "Nuvoton NCT6792D")
-                                    print(f"       🔍 Checking intermediate levels...")
-                                    intermediate_count = 0
-                                    total_sensors_found = 0
-
-                                    for intermediate in child.get("Children", []):
-                                        if isinstance(intermediate, dict) and "Text" in intermediate:
-                                            intermediate_name = intermediate["Text"]
-                                            intermediate_sensors = count_sensors(intermediate)
-
-                                            if intermediate_sensors > 0:
-                                                print(f"       📁 {intermediate_name}: {intermediate_sensors} sensors")
-
-                                                # Show what sensor categories exist under this hardware
-                                                if "Children" in intermediate:
-                                                    print(f"          🔍 Sensor categories:")
-                                                    for category in intermediate.get("Children", []):
-                                                        if isinstance(category, dict) and "Text" in category:
-                                                            category_name = category["Text"]
-                                                            category_sensors = count_sensors(category)
-                                                            print(f"             📂 {category_name}: {category_sensors} sensors")
-
-                                                            # Show ALL sensors in each category (like the Special investigation)
-                                                            if category_sensors > 0:
-                                                                print(f"                🔍 Sensors in {category_name}:")
-                                                                find_and_show_sensors(category, depth=4, max_sensors=category_sensors, sensors_found=0)
-
-                                                if total_sensors_found < 50:  # Show many more sensors from each hardware component
-                                                    subsensors = find_and_show_sensors(intermediate, depth=2, max_sensors=20, sensors_found=0)
-                                                    total_sensors_found += subsensors
-                                                intermediate_count += 1
-
-                                    if intermediate_count == 0:
-                                        print("       ❌ No sensors found in this component")
-                                    else:
-                                        sensor_count = total_sensors_found
-
-                    print()
-
-                    # Search for any sensors in the entire tree
-                    print("🔍 Searching entire tree for sensors...")
-                    total_sensors = count_sensors(data)
-                    print(f"📊 Total sensors found: {total_sensors}")
-
-                    if total_sensors > 0:
-                        # Remove redundant sensor locations since Hardware Components now shows everything
-                        # print("🔍 Finding sensor locations...")
-                        # find_sensor_locations(data, path="Root", max_examples=15)  # Show more examples
-
-                        # Special investigation for CPU/GPU/Fan sensors
-                        print("\n🔍 Special Hardware Investigation:")
-                        investigate_cpu_gpu_sensors(data)
-                        print("\n🌬️ Fan Analysis:")
-                        investigate_fan_sensors(data)
-
-                    if total_sensors == 0:
-                        print("❌ No sensors found anywhere in the JSON tree!")
-                        print("💡 This might indicate:")
-                        print("   1. LibreHardwareMonitor HTTP server disabled")
-                        print("   2. Different JSON structure than expected")
-                        print("   3. Hardware not properly detected")
-
-            else:
-                print(f"❌ Unexpected response type: {type(data)}")
-                print(f"Response: {data}")
-
+            print(f"📊 HTTP API Response: {len(response.text)} characters")
+            
+            # Extract sensors from JSON structure
+            sensors = extract_sensors_from_json(data)
+            return sensors
+            
         else:
-            print(f"❌ HTTP Error {response.status_code}")
-            print(f"Response: {response.text[:200]}...")
-
+            print(f"HTTP Error {response.status_code}")
+            return []
+            
     except requests.exceptions.ConnectionError:
-        print(f"❌ Connection failed - Cannot reach LibreHardwareMonitor at {host}:{port}")
-        print("\n💡 Troubleshooting Steps:")
-        print("   1. Ensure LibreHardwareMonitor is running")
-        print("   2. Enable HTTP server: Options → Web Server → Enable Web Server ✅")
-        print(f"   3. Verify the address: http://{host}:{port}/data.json")
-        print("   4. Check firewall settings if connecting remotely")
+        print(f"Connection failed - HTTP server not running")
+        return []
     except Exception as e:
-        print(f"❌ Unexpected error: {e}")
-        print("\n💡 Please check your connection settings and try again.")
+        print(f"HTTP API Error: {e}")
+        return []
 
-    print("=" * 80)
+
+def extract_sensors_from_json(node, parent_path=""):
+    """Extract sensors from LibreHardwareMonitor JSON tree"""
+    sensors = []
+
+    # Build parent path
+    if "Text" in node and node["Text"]:
+        clean_text = node["Text"].lower().replace(' ', '').replace('#', '')
+        if parent_path:
+            current_path = f"{parent_path}/{clean_text}"
+        else:
+            current_path = f"/{clean_text}"
+    else:
+        current_path = parent_path
+
+    # Check if this node is a sensor
+    if "Type" in node and "Value" in node:
+        sensor_name = node.get("Text", "Unknown")
+        sensor_type = node.get("Type")
+        value_str = node.get("Value", "")
+        
+        # Parse value
+        try:
+            if isinstance(value_str, (int, float)):
+                numeric_value = float(value_str)
+            else:
+                # Parse formatted string (e.g., "45.2 °C", "1850 RPM")
+                cleaned = str(value_str).replace('°C', '').replace('RPM', '').replace('%', '').replace('MHz', '').replace('W', '').strip()
+                cleaned = cleaned.replace(',', '.')
+                import re
+                cleaned = re.sub(r'[^0-9.\-]', '', cleaned)
+                numeric_value = float(cleaned) if cleaned else 0
+        except:
+            numeric_value = 0
+        
+        if numeric_value >= 0:  # Only include valid values
+            sensor_data = {
+                "SensorType": sensor_type,
+                "Name": sensor_name,
+                "Value": numeric_value,
+                "Parent": current_path
+            }
+            sensors.append(sensor_data)
+
+    # Process children recursively
+    if "Children" in node and isinstance(node["Children"], list):
+        for child in node["Children"]:
+            sensors.extend(extract_sensors_from_json(child, current_path))
+
+    return sensors
 
 
 def count_direct_sensors(node):
@@ -399,15 +671,41 @@ def investigate_fan_sensors(node, current_path=""):
 
 
 if __name__ == "__main__":
-    print("🔍 Rigbeat Sensor Discovery Tool")
-    print("=" * 40)
-    print()
+    parser = argparse.ArgumentParser(
+        description='Rigbeat Sensor Discovery Tool - Analyze LibreHardwareMonitor sensors',
+        formatter_class=argparse.RawDescriptionHelpFormatter,
+        epilog="""
+Examples:
+  python sensor_discovery.py                    # Auto-detect (HTTP preferred)
+  python sensor_discovery.py --method http      # Force HTTP API only  
+  python sensor_discovery.py --method wmi       # Force WMI only
+  python sensor_discovery.py --host 192.168.1.100  # Remote system
+        """
+    )
+
+    parser.add_argument(
+        '--method',
+        choices=['auto', 'http', 'wmi'],
+        default='auto',
+        help='Connection method (default: auto - tries HTTP first, falls back to WMI)'
+    )
+    parser.add_argument(
+        '--host',
+        default='localhost',
+        help='LibreHardwareMonitor HTTP API host (default: localhost)'
+    )
+    parser.add_argument(
+        '--port',
+        type=int,
+        default=8085,
+        help='LibreHardwareMonitor HTTP API port (default: 8085)'
+    )
+
+    args = parser.parse_args()
     
-    if len(sys.argv) > 1:
-        host = sys.argv[1]
-        port = int(sys.argv[2]) if len(sys.argv) > 2 else 8085
-    else:
-        host = "localhost"
-        port = 8085
-    
-    test_http_api(host, port)
+    # Run the enhanced discovery with both HTTP and WMI support
+    test_connection_methods(
+        host=args.host,
+        port=args.port, 
+        method=args.method
+    )

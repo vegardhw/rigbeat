@@ -15,6 +15,7 @@ import argparse
 import requests
 import json
 from typing import Dict, List, Optional
+from collections import defaultdict
 from prometheus_client import start_http_server, Gauge, Info
 
 # Try to import WMI for fallback (optional)
@@ -30,10 +31,10 @@ except ImportError:
 SENSOR_FILTER_CONFIG = {
     # Essential sensors (always included) - core gaming/monitoring metrics
     'essential': {
-        'cpu': ['Temperature', 'Load', 'Power'],      # CPU temps, loads, power
-        'gpu': ['Temperature', 'Load', 'Power', 'Fan', 'Clock', 'Data'],  # GPU essentials + memory
+        'cpu': ['Temperature', 'Load', 'Power'],      # CPU temps, loads, power (includes package power)
+        'gpu': ['Temperature', 'Load', 'Power', 'Fan', 'Clock', 'Data', 'SmallData'],  # GPU essentials + memory (includes core temp, memory used/free/total)
         'motherboard': ['Temperature', 'Fan'],         # System temps and cooling
-        'memory': ['Data'],                            # Main RAM usage
+        'memory': ['Data', 'SmallData'],               # Main RAM usage (Data=GB, SmallData=MB)
     },
     
     # Extended sensors (optional) - detailed monitoring
@@ -82,107 +83,10 @@ def should_include_sensor(sensor_type: str, component_type: str, mode: str = DEF
     return False
 
 # Sensor Mapping Configuration
-# Maps LibreHardwareMonitor sensor names to standardized Prometheus metric names
-SENSOR_NAME_MAPPING = {
-    # CPU Temperature Sensors
-    'Core (Tctl/Tdie)': 'cpu_temp_tctl',
-    'CCD1 (Tdie)': 'cpu_temp_ccd1',
-    'CCD2 (Tdie)': 'cpu_temp_ccd2', 
-    'Package': 'cpu_package_temp',
-    'Core Max': 'cpu_core_max_temp',
-    'Core Average': 'cpu_core_avg_temp',
-    
-    # CPU Load Sensors (generic patterns)
-    'CPU Total': 'cpu_load_total',
-    'CPU Core Max': 'cpu_core_max_load',
-    # Note: Individual cores handled dynamically (Core #1, Core #2, etc.)
-    
-    # CPU Clock Sensors
-    'Bus Speed': 'cpu_bus_speed',
-    # Note: Individual cores handled dynamically
-    
-    # CPU Power Sensors
-    # Note: Package and individual cores handled dynamically
-    
-    # CPU Voltage Sensors
-    'Core (SVI2 TFN)': 'cpu_core_voltage',
-    'SoC (SVI2 TFN)': 'cpu_soc_voltage',
-    
-    # GPU Temperature Sensors
-    'GPU Core': 'gpu_temp_core',
-    'GPU Hot Spot': 'gpu_temp_hotspot',
-    'GPU Memory': 'gpu_temp_memory',
-    'GPU Memory Junction': 'gpu_temp_memory_junction',
-    
-    # GPU Load Sensors
-    'GPU Core': 'gpu_load_core',
-    'GPU Memory Controller': 'gpu_load_memory_controller',
-    'GPU Video Engine': 'gpu_load_video_engine',
-    'GPU 3D': 'gpu_load_3d',
-    
-    # GPU Clock Sensors
-    'GPU Core': 'gpu_core_clock',
-    'GPU Memory': 'gpu_memory_clock',
-    'GPU Shader': 'gpu_shader_clock',
-    
-    # GPU Power Sensors
-    'GPU Package': 'gpu_package_power',
-    'GPU Board Power': 'gpu_board_power',
-    
-    # GPU Fan Sensors (dynamic numbering)
-    # Note: GPU Fan 1, GPU Fan 2, etc. handled dynamically
-    
-    # GPU Memory Sensors
-    'GPU Memory Free': 'gpu_memory_free',
-    'GPU Memory Used': 'gpu_memory_used',
-    'GPU Memory Total': 'gpu_memory_total',
-    
-    # GPU Throughput Sensors
-    'GPU PCIe Rx': 'gpu_pcie_rx_throughput',
-    'GPU PCIe Tx': 'gpu_pcie_tx_throughput',
-    
-    # Motherboard Temperature Sensors (generic numbering)
-    # Note: Temperature #1, Temperature #2, etc. handled dynamically
-    'CPU': 'motherboard_cpu_temp',
-    'Motherboard': 'motherboard_temp',
-    
-    # Motherboard Voltage Sensors
-    'Vcore': 'motherboard_vcore',
-    'AVCC': 'motherboard_avcc',
-    '+3.3V': 'motherboard_3v3',
-    '+3V Standby': 'motherboard_3v_standby',
-    'CPU Termination': 'motherboard_cpu_termination',
-    '+12V': 'motherboard_12v',
-    '+5V': 'motherboard_5v',
-    'Battery': 'motherboard_battery',
-    
-    # Motherboard Fan Sensors
-    'CPU Fan': 'motherboard_cpu_fan',
-    # Note: Chassis Fan #1, Chassis Fan #2, etc. handled dynamically
-    'System Fan': 'motherboard_system_fan',
-    
-    # Memory Sensors
-    'Memory': 'memory_load',
-    'Virtual Memory': 'memory_virtual_load',
-    'Memory Available': 'memory_available',
-    'Memory Used': 'memory_used',
-    
-    # Storage/Drive Sensors
-    'Used Space': 'drive_used_space',
-    'Free Space': 'drive_free_space',
-    'Total Activity': 'drive_total_activity',
-    'Read Rate': 'drive_read_rate',
-    'Write Rate': 'drive_write_rate',
-    'Read Activity': 'drive_read_activity',
-    'Write Activity': 'drive_write_activity',
-    'Temperature': 'drive_temperature',
-    
-    # Network Sensors
-    'Download Speed': 'network_download_speed',
-    'Upload Speed': 'network_upload_speed',
-    'Data Downloaded': 'network_data_downloaded',
-    'Data Uploaded': 'network_data_uploaded',
-}
+# Note: Most mappings are now handled dynamically in get_standardized_metric_name()
+# which uses context-aware logic (component_type + sensor_type) for accurate mapping.
+# This avoids ambiguity issues with sensors that have the same name but different meanings
+# (e.g., "GPU Core" appears in Temperature, Load, and Clock sensor types).
 
 def get_standardized_metric_name(sensor_name: str, component_type: str = '', sensor_type: str = '') -> str:
     """
@@ -196,30 +100,163 @@ def get_standardized_metric_name(sensor_name: str, component_type: str = '', sen
     Returns:
         Standardized metric name or generated name if no mapping found
     """
-    # First try direct mapping
-    if sensor_name in SENSOR_NAME_MAPPING:
-        return SENSOR_NAME_MAPPING[sensor_name]
+    sensor_type_lower = sensor_type.lower() if sensor_type else ''
+    sensor_name_lower = sensor_name.lower() if sensor_name else ''
     
-    # Handle dynamic patterns for numbered sensors
+    # =========================================================================
+    # CONTEXT-AWARE PATTERNS FIRST (component_type + sensor_type required)
+    # These must be checked BEFORE static mappings to avoid ambiguous matches
+    # =========================================================================
+    
+    # GPU context-aware patterns - check component AND sensor type together
+    if component_type == 'gpu':
+        # GPU Temperature sensors
+        if sensor_type_lower == 'temperature':
+            if sensor_name == 'GPU Core' or sensor_name_lower == 'core':
+                return 'gpu_temp_core'
+            elif 'memory' in sensor_name_lower and 'junction' in sensor_name_lower:
+                return 'gpu_temp_memory_junction'
+            elif 'memory' in sensor_name_lower:
+                return 'gpu_temp_memory'
+            elif 'hot' in sensor_name_lower or 'hotspot' in sensor_name_lower:
+                return 'gpu_temp_hotspot'
+        
+        # GPU Load sensors
+        elif sensor_type_lower == 'load':
+            if sensor_name == 'GPU Core' or sensor_name_lower in ['core', 'gpu core']:
+                return 'gpu_load_core'
+            elif sensor_name == 'GPU Memory' or sensor_name_lower == 'gpu memory':
+                return 'gpu_memory_load'  # Memory usage percentage
+            elif 'memory controller' in sensor_name_lower:
+                return 'gpu_load_memory_controller'
+            elif 'video engine' in sensor_name_lower or sensor_name_lower == 'video engine':
+                return 'gpu_load_video_engine'
+            elif '3d' in sensor_name_lower or 'd3d' in sensor_name_lower:
+                return 'gpu_load_3d'
+            elif sensor_name_lower == 'bus' or sensor_name == 'GPU Bus':
+                return 'gpu_load_bus'
+            elif sensor_name_lower == 'power' or sensor_name == 'GPU Power':
+                return 'gpu_load_power'
+        
+        # GPU Clock sensors
+        elif sensor_type_lower == 'clock':
+            if sensor_name == 'GPU Core' or sensor_name_lower == 'core':
+                return 'gpu_core_clock'
+            elif sensor_name == 'GPU Memory' or sensor_name_lower == 'memory':
+                return 'gpu_memory_clock'
+            elif 'shader' in sensor_name_lower:
+                return 'gpu_shader_clock'
+        
+        # GPU Memory sensors (Data/SmallData type) - memory sizes in MB
+        elif sensor_type_lower in ['data', 'smalldata']:
+            # Explicit name matches first
+            if sensor_name in ['GPU Memory Free', 'D3D Dedicated Memory Free', 'D3D Shared Memory Free']:
+                return 'gpu_memory_free'
+            elif sensor_name in ['GPU Memory Used', 'D3D Dedicated Memory Used', 'D3D Shared Memory Used']:
+                return 'gpu_memory_used'
+            elif sensor_name in ['GPU Memory Total', 'D3D Dedicated Memory Total', 'D3D Shared Memory Total']:
+                return 'gpu_memory_total'
+            # Partial matches
+            elif 'free' in sensor_name_lower:
+                return 'gpu_memory_free'
+            elif 'used' in sensor_name_lower:
+                return 'gpu_memory_used'
+            elif 'total' in sensor_name_lower:
+                return 'gpu_memory_total'
+        
+        # GPU Power sensors
+        elif sensor_type_lower == 'power':
+            if 'package' in sensor_name_lower:
+                return 'gpu_package_power'
+            elif 'board' in sensor_name_lower:
+                return 'gpu_board_power'
+        
+        # GPU Fan sensors
+        elif sensor_type_lower == 'fan':
+            if re.match(r'^GPU Fan \d+', sensor_name):
+                fan_num = re.search(r'Fan (\d+)', sensor_name).group(1)
+                return f"gpu_fan_{fan_num}_speed"
+            else:
+                return 'gpu_fan_speed'
+    
+    # Memory (RAM) context-aware patterns
+    elif component_type == 'memory':
+        # Memory Load sensors
+        if sensor_type_lower == 'load':
+            if sensor_name == 'Memory' or sensor_name_lower == 'memory':
+                return 'memory_load'
+            elif 'virtual' in sensor_name_lower:
+                return 'memory_virtual_load'
+        
+        # Memory Data sensors - distinguish physical vs virtual memory
+        elif sensor_type_lower in ['data', 'smalldata']:
+            is_virtual = 'virtual' in sensor_name_lower
+            
+            if 'available' in sensor_name_lower:
+                return 'memory_virtual_available' if is_virtual else 'memory_available'
+            elif 'used' in sensor_name_lower:
+                return 'memory_virtual_used' if is_virtual else 'memory_used'
+            elif 'total' in sensor_name_lower:
+                return 'memory_virtual_total' if is_virtual else 'memory_total'
+    
+    # CPU context-aware patterns
+    elif component_type == 'cpu':
+        # CPU Temperature sensors
+        if sensor_type_lower == 'temperature':
+            if 'package' in sensor_name_lower:
+                return 'cpu_package_temp'
+            elif 'tctl' in sensor_name_lower or 'tdie' in sensor_name_lower:
+                return 'cpu_temp_tctl'
+            elif 'ccd1' in sensor_name_lower:
+                return 'cpu_temp_ccd1'
+            elif 'ccd2' in sensor_name_lower:
+                return 'cpu_temp_ccd2'
+            elif sensor_name == 'Core Max':
+                return 'cpu_core_max_temp'
+            elif sensor_name == 'Core Average':
+                return 'cpu_core_avg_temp'
+        
+        # CPU Power sensors
+        elif sensor_type_lower == 'power':
+            if 'package' in sensor_name_lower or sensor_name_lower == 'package':
+                return 'cpu_package_power'
+            elif sensor_name_lower == 'core':
+                return 'cpu_core_power'
+        
+        # CPU Load sensors
+        elif sensor_type_lower == 'load':
+            if sensor_name == 'CPU Total':
+                return 'cpu_load_total'
+            elif sensor_name == 'CPU Core Max':
+                return 'cpu_core_max_load'
+        
+        # CPU Voltage sensors
+        elif sensor_type_lower == 'voltage':
+            if 'svi2' in sensor_name_lower and 'core' in sensor_name_lower:
+                return 'cpu_core_voltage'
+            elif 'svi2' in sensor_name_lower and 'soc' in sensor_name_lower:
+                return 'cpu_soc_voltage'
+    
+    # =========================================================================
+    # DYNAMIC PATTERNS (numbered sensors like Core #1, Chassis Fan #2, etc.)
+    # =========================================================================
+    
     # CPU Core patterns: "Core #1", "Core #2", etc.
     if re.match(r'^Core #\d+', sensor_name):
         core_num = re.search(r'#(\d+)', sensor_name).group(1)
-        if sensor_type.lower() in ['load', 'temperature']:
-            return f"cpu_core_{core_num}_load" if 'load' in sensor_type.lower() else f"cpu_core_{core_num}_temp"
-        elif sensor_type.lower() == 'clock':
+        if sensor_type_lower == 'load':
+            return f"cpu_core_{core_num}_load"
+        elif sensor_type_lower == 'temperature':
+            return f"cpu_core_{core_num}_temp"
+        elif sensor_type_lower == 'clock':
             return f"cpu_core_{core_num}_clock"
-        elif sensor_type.lower() == 'power':
+        elif sensor_type_lower == 'power':
             return f"cpu_core_{core_num}_power"
     
-    # CPU Core Power patterns: "Core #1 (SMU)", etc.
+    # CPU Core Power patterns with SMU: "Core #1 (SMU)", etc.
     elif re.match(r'^Core #\d+.*SMU', sensor_name):
         core_num = re.search(r'#(\d+)', sensor_name).group(1)
         return f"cpu_core_{core_num}_power"
-    
-    # GPU Fan patterns: "GPU Fan 1", "GPU Fan 2", etc.
-    elif re.match(r'^GPU Fan \d+', sensor_name):
-        fan_num = re.search(r'Fan (\d+)', sensor_name).group(1)
-        return f"gpu_fan_{fan_num}_speed"
     
     # Motherboard Temperature patterns: "Temperature #1", "Temperature #2", etc.
     elif re.match(r'^Temperature #\d+', sensor_name):
@@ -236,8 +273,58 @@ def get_standardized_metric_name(sensor_name: str, component_type: str = '', sen
         fan_num = re.search(r'#(\d+)', sensor_name).group(1)
         return f"motherboard_chassis_fan_{fan_num}"
     
-    # Fallback: create standardized name from components
-    metric_name = sensor_name.lower()
+    # GPU Fan patterns (fallback): "GPU Fan 1", "GPU Fan 2", etc.
+    elif re.match(r'^GPU Fan \d+', sensor_name):
+        fan_num = re.search(r'Fan (\d+)', sensor_name).group(1)
+        return f"gpu_fan_{fan_num}_speed"
+    
+    # =========================================================================
+    # STATIC MAPPINGS (only for unambiguous sensor names)
+    # =========================================================================
+    
+    # Only use static mapping for clearly unambiguous names
+    unambiguous_mappings = {
+        # CPU sensors with unique names
+        'Bus Speed': 'cpu_bus_speed',
+        
+        # Motherboard sensors
+        'CPU': 'motherboard_cpu_temp',
+        'Motherboard': 'motherboard_temp',
+        'Vcore': 'motherboard_vcore',
+        'AVCC': 'motherboard_avcc',
+        '+3.3V': 'motherboard_3v3',
+        '+3V Standby': 'motherboard_3v_standby',
+        'CPU Termination': 'motherboard_cpu_termination',
+        '+12V': 'motherboard_12v',
+        '+5V': 'motherboard_5v',
+        'Battery': 'motherboard_battery',
+        'CPU Fan': 'motherboard_cpu_fan',
+        'System Fan': 'motherboard_system_fan',
+        
+        # Storage sensors
+        'Used Space': 'drive_used_space',
+        'Free Space': 'drive_free_space',
+        'Total Activity': 'drive_total_activity',
+        'Read Rate': 'drive_read_rate',
+        'Write Rate': 'drive_write_rate',
+        'Read Activity': 'drive_read_activity',
+        'Write Activity': 'drive_write_activity',
+        
+        # Network sensors
+        'Download Speed': 'network_download_speed',
+        'Upload Speed': 'network_upload_speed',
+        'Data Downloaded': 'network_data_downloaded',
+        'Data Uploaded': 'network_data_uploaded',
+    }
+    
+    if sensor_name in unambiguous_mappings:
+        return unambiguous_mappings[sensor_name]
+    
+    # =========================================================================
+    # FALLBACK: Generate metric name from sensor name
+    # =========================================================================
+    
+    metric_name = sensor_name_lower
     
     # Clean up common patterns
     metric_name = re.sub(r'[^\w\s]', '', metric_name)  # Remove special chars
@@ -261,7 +348,7 @@ logger = logging.getLogger(__name__)
 # Dynamic Prometheus metrics - created on demand for HTTP API sensors
 hardware_metrics = {}
 
-def get_or_create_metric(metric_name: str, sensor_type: str, help_text: str = "", labels: List[str] = None):
+def get_or_create_metric(metric_name: str, sensor_type: str, help_text: str = ""):
     """
     Get existing metric or create new one dynamically for HTTP API sensors.
     
@@ -269,7 +356,6 @@ def get_or_create_metric(metric_name: str, sensor_type: str, help_text: str = ""
         metric_name: Standardized metric name  
         sensor_type: Type of sensor (Temperature, Load, etc.)
         help_text: Help text for the metric
-        labels: Label names for the metric
     
     Returns:
         Prometheus Gauge metric
@@ -280,24 +366,29 @@ def get_or_create_metric(metric_name: str, sensor_type: str, help_text: str = ""
             unit_map = {
                 'Temperature': 'celsius', 'Load': 'percent', 'Clock': 'mhz', 
                 'Power': 'watts', 'Fan': 'rpm', 'Voltage': 'volts',
-                'Data': 'mb', 'Throughput': 'mb_per_sec'
+                'Data': 'megabytes', 'SmallData': 'megabytes', 'Throughput': 'mb_per_sec'
             }
             unit = unit_map.get(sensor_type, 'units')
-            help_text = f"{sensor_type} sensor value in {unit}"
+            
+            # Create descriptive help text based on sensor type
+            type_descriptions = {
+                'Temperature': 'Temperature reading',
+                'Load': 'Load percentage',
+                'Clock': 'Clock frequency',
+                'Power': 'Power consumption',
+                'Fan': 'Fan speed',
+                'Voltage': 'Voltage level',
+                'Data': 'Data size',
+                'SmallData': 'Data size',
+                'Throughput': 'Data throughput'
+            }
+            description = type_descriptions.get(sensor_type, sensor_type)
+            help_text = f"{description} in {unit}"
         
-        # Use minimal labels for cleaner metrics
-        if labels is None:
-            if sensor_type in ['Temperature', 'Load', 'Clock', 'Power', 'Voltage']:
-                labels = ['component', 'sensor']  # e.g., component=cpu, sensor=core_1
-            elif sensor_type == 'Fan':
-                labels = ['component', 'fan']     # e.g., component=gpu, fan=fan_1
-            else:
-                labels = ['component']            # e.g., component=gpu
-        
-        # Create the metric with rigbeat prefix
+        # Create the metric with rigbeat prefix and no labels (metric name is descriptive enough)
         full_metric_name = f"rigbeat_{metric_name}"
-        hardware_metrics[metric_name] = Gauge(full_metric_name, help_text, labels)
-        logger.debug(f"Created new metric: {full_metric_name} with labels {labels}")
+        hardware_metrics[metric_name] = Gauge(full_metric_name, help_text)
+        logger.debug(f"Created new metric: {full_metric_name}")
     
     return hardware_metrics[metric_name]
 
@@ -631,29 +722,86 @@ class HardwareMonitor:
             logger.debug(f"Could not parse sensor value: '{value_str}' -> '{cleaned}'")
             return None
 
-    def _is_cpu_sensor(self, parent: str) -> bool:
-        """Check if sensor belongs to CPU (Intel, AMD, or other)"""
+    def _get_hardware_component(self, parent: str) -> str:
+        """Extract the top-level hardware component from a sensor path.
+        
+        Path structures vary by source:
+          HTTP API: /sensor/COMPUTERNAME/hardwareComponent/sensorGroup/sensorName
+          WMI:      /hardwareComponent/sensorGroup/sensorName
+        
+        We need to find the hardware component segment, skipping:
+          - 'sensor' prefix (HTTP API)
+          - computer name (HTTP API)
+          - 'computer' (sometimes present)
+        
+        Examples:
+          /sensor/WIN-PC/genericmemory/load/memory -> 'genericmemory' -> Memory
+          /sensor/WIN-PC/genericmemory/data/virtualmemoryused -> 'genericmemory' -> Memory
+          /nvidiageforcertx3070/temperature/gpucore -> 'nvidiageforcertx3070' -> GPU
+          /amdryzen75800x/temperature/coremax -> 'amdryzen75800x' -> CPU
+        """
         if not parent:
-            return False
+            return "unknown"
+        
+        # Split path into segments
+        parts = [p for p in parent.lower().split('/') if p]
+        if not parts:
+            return "unknown"
+        
+        # Skip known prefixes to find the hardware component
+        # HTTP API paths start with: /sensor/COMPUTERNAME/...
+        # We need to skip 'sensor' and the computer name (which varies)
+        idx = 0
+        
+        # Skip 'sensor' prefix if present
+        if idx < len(parts) and parts[idx] == 'sensor':
+            idx += 1
+            # After 'sensor', the next segment is ALWAYS the computer name - skip it unconditionally
+            if idx < len(parts):
+                idx += 1
+        # Also skip 'computer' if it appears as first segment (alternative format)
+        elif idx < len(parts) and parts[idx] == 'computer':
+            idx += 1
+        
+        # Now we should be at the hardware component
+        if idx >= len(parts):
+            return "unknown"
+        
+        hw_component = parts[idx]
+        
+        # Classify based on hardware component name
+        # GPU detection - check first to avoid false matches
+        if any(gpu in hw_component for gpu in ["gpu", "nvidia", "geforce", "radeon", "rtx", "gtx", "quadro", "amd rx"]):
+            return "gpu"
+        
+        # CPU detection
+        if any(cpu in hw_component for cpu in ["cpu", "amdcpu", "intelcpu", "ryzen", "threadripper", "epyc", "xeon", "corei", "processor"]):
+            return "cpu"
+        # Special case: Virtual CPU in VMs (the hardware component is literally "virtual")
+        if hw_component == "virtual" or hw_component.startswith("virtualcpu"):
+            return "cpu"
+        
+        # Memory detection - includes "Generic Memory" -> "genericmemory"
+        if any(mem in hw_component for mem in ["memory", "ram", "genericmemory"]):
+            return "memory"
+        
+        # Motherboard detection
+        if any(mb in hw_component for mb in ["motherboard", "mainboard", "asrock", "asus", "msi", "gigabyte", "nuvoton", "nct", "lpc"]):
+            return "motherboard"
+        
+        # Storage detection
+        if any(drive in hw_component for drive in ["ssd", "hdd", "nvme", "samsung", "wdc", "seagate", "toshiba", "storage", "disk"]):
+            return "storage"
+        
+        # Network detection
+        if any(net in hw_component for net in ["ethernet", "network", "nic", "bluetooth", "wifi", "tailscale"]):
+            return "network"
+        
+        return "other"
 
-        parent_lower = parent.lower()
-
-        # Comprehensive CPU detection patterns
-        cpu_patterns = [
-            "/cpu",          # Generic CPU path
-            "/amdcpu",       # AMD-specific path
-            "/intelcpu",     # Intel-specific path
-            "cpu",           # Generic CPU in path
-            "processor",     # Alternative CPU naming
-            "ryzen",         # AMD Ryzen series
-            "threadripper",  # AMD Threadripper
-            "epyc",          # AMD EPYC
-            "intel",         # Intel processors
-            "xeon",          # Intel Xeon
-            "core",          # Intel Core series
-        ]
-
-        return any(pattern in parent_lower for pattern in cpu_patterns)
+    def _is_cpu_sensor(self, parent: str) -> bool:
+        """Check if sensor belongs to CPU based on top-level hardware component"""
+        return self._get_hardware_component(parent) == "cpu"
 
     def update_metrics(self):
         """Update all Prometheus metrics"""
@@ -677,20 +825,8 @@ class HardwareMonitor:
                     sensor_type = getattr(sensor, 'SensorType', '')
                     parent = getattr(sensor, 'Parent', '') or ''
                 
-                # Quick component type detection for filtering
-                component_type = ""
-                if self._is_cpu_sensor(parent):
-                    component_type = "cpu"
-                elif "gpu" in parent.lower() or "geforce" in parent.lower() or "radeon" in parent.lower():
-                    component_type = "gpu"
-                elif "motherboard" in parent.lower() or any(mb in parent.lower() for mb in ["asrock", "asus", "msi", "gigabyte"]):
-                    component_type = "motherboard"
-                elif "memory" in parent.lower():
-                    component_type = "memory"
-                elif any(drive in parent.lower() for drive in ["ssd", "hdd", "wdc", "samsung", "elements"]):
-                    component_type = "storage"
-                elif any(net in parent.lower() for net in ["ethernet", "bluetooth", "tailscale"]):
-                    component_type = "network"
+                # Quick component type detection for filtering (uses top-level hardware component)
+                component_type = self._get_hardware_component(parent)
                 
                 if should_include_sensor(sensor_type, component_type, self.sensor_mode):
                     filtered_count += 1
@@ -700,13 +836,39 @@ class HardwareMonitor:
         # Debug: Log sensor types for troubleshooting
         if logger.isEnabledFor(logging.DEBUG):
             sensor_types = {}
+            critical_metrics = []
+            gpu_sensors_by_type = defaultdict(list)  # Track GPU sensors by type
+            
             for sensor in sensors:
                 if isinstance(sensor, dict):
                     stype = sensor.get('SensorType', 'Unknown')
+                    sname = sensor.get('Name', 'Unknown')
+                    parent = sensor.get('Parent', 'Unknown')
                 else:
                     stype = getattr(sensor, 'SensorType', 'Unknown')
+                    sname = getattr(sensor, 'Name', 'Unknown')
+                    parent = getattr(sensor, 'Parent', 'Unknown')
+                    
                 sensor_types[stype] = sensor_types.get(stype, 0) + 1
+                
+                # Track GPU sensors specifically
+                if 'gpu' in parent.lower() or 'geforce' in parent.lower() or 'nvidia' in parent.lower():
+                    gpu_sensors_by_type[stype].append(sname)
+                
+                # Track critical metrics that user specifically mentioned
+                if any(metric in sname for metric in ['GPU Memory Free', 'GPU Memory Used', 'GPU Memory Total', 'GPU Core', 'Package']):
+                    critical_metrics.append(f"{stype}/{sname}")
+            
             logger.debug(f"Sensor types found: {dict(sensor_types)}")
+            
+            # Show GPU sensors breakdown for troubleshooting
+            if gpu_sensors_by_type:
+                logger.debug("GPU Sensors Breakdown:")
+                for stype, names in sorted(gpu_sensors_by_type.items()):
+                    logger.debug(f"  {stype}: {names}")
+            
+            if critical_metrics:
+                logger.debug(f"Critical sensors found: {critical_metrics}")
 
         for sensor in sensors:
             try:
@@ -734,20 +896,9 @@ class HardwareMonitor:
                 if value < 0 and sensor_type in ["Temperature", "Load", "Clock", "Power", "Fan"]:
                     continue
                 
-                # Determine component type for better metric naming
-                component_type = ""
-                if self._is_cpu_sensor(parent):
-                    component_type = "cpu"
-                elif "gpu" in parent.lower() or "geforce" in parent.lower() or "radeon" in parent.lower():
-                    component_type = "gpu"
-                elif "motherboard" in parent.lower() or any(mb in parent.lower() for mb in ["asrock", "asus", "msi", "gigabyte"]):
-                    component_type = "motherboard"
-                elif "memory" in parent.lower():
-                    component_type = "memory"
-                elif any(drive in parent.lower() for drive in ["ssd", "hdd", "wdc", "samsung", "elements"]):
-                    component_type = "storage"
-                elif any(net in parent.lower() for net in ["ethernet", "bluetooth", "tailscale"]):
-                    component_type = "network"
+                # Determine component type using top-level hardware component extraction
+                # This prevents false matches like "virtualmemory" matching the "/virtual" CPU pattern
+                component_type = self._get_hardware_component(parent)
                     
                 # Get standardized metric name
                 standardized_name = get_standardized_metric_name(sensor_name, component_type, sensor_type.lower())
@@ -759,67 +910,15 @@ class HardwareMonitor:
                 
                 logger.debug(f"Processing sensor: {sensor_type}/{sensor_name} = {value} (parent: {parent}) -> {standardized_name}")
 
-                # Process sensor using dynamic metrics and standardized names
-                # Get appropriate labels for the metric
-                component_label = component_type or 'unknown'
-                
                 # Create metric dynamically and set value
                 metric = get_or_create_metric(standardized_name, sensor_type)
                 
-                # Set metric value with appropriate labels based on sensor type
+                # Set metric value directly (no labels needed - metric name is descriptive)
                 try:
-                    if sensor_type in ['Temperature', 'Load', 'Clock', 'Power', 'Voltage']:
-                        # Extract sensor identifier from standardized name
-                        name_parts = standardized_name.split('_')
-                        sensor_id = '_'.join(name_parts[1:]) if len(name_parts) > 1 else 'main'
-                        metric.labels(component=component_label, sensor=sensor_id).set(value)
-                        
-                    elif sensor_type == 'Fan':
-                        # Extract fan identifier - handle different naming patterns
-                        if 'fan' in standardized_name:
-                            # For names like 'gpu_fan_1_speed' or 'motherboard_cpu_fan'
-                            if standardized_name.endswith('_speed'):
-                                # Remove '_speed' suffix first
-                                base_name = standardized_name[:-6]  # Remove '_speed'
-                            else:
-                                base_name = standardized_name
-                            
-                            # Extract fan part after component
-                            name_parts = base_name.split('_')
-                            if len(name_parts) > 1:
-                                fan_id = '_'.join(name_parts[1:])  # Everything after component
-                            else:
-                                fan_id = 'main'
-                        else:
-                            fan_id = 'main'
-                        
-                        metric.labels(component=component_label, fan=fan_id).set(value)
-                        
-                    elif sensor_type in ['Data', 'SmallData']:
-                        # Handle memory, storage, and other data sensors
-                        name_parts = standardized_name.split('_')
-                        data_type = '_'.join(name_parts[1:]) if len(name_parts) > 1 else 'main'
-                        
-                        # Apply unit conversions for common data types
-                        converted_value = value
-                        if 'memory' in standardized_name and 'mb' in str(value).lower():
-                            # Convert MB to GB for memory sensors
-                            converted_value = round(value / 1024, 2) if value > 1024 else value
-                        elif 'memory' in standardized_name and value > 1000:
-                            # Assume large values are in MB, convert to GB
-                            converted_value = round(value / 1024, 2)
-                            
-                        metric.labels(component=component_label).set(converted_value)
-                        
-                    elif sensor_type == 'Throughput':
-                        # Network and storage throughput
-                        metric.labels(component=component_label).set(value)
-                        
-                    else:
-                        # Generic sensor types
-                        metric.labels(component=component_label).set(value)
-                        
-                    logger.debug(f"Set metric {standardized_name}: {value} (component={component_label})")
+                    # Pass through raw values - let Grafana handle unit conversions
+                    # SmallData = MB, Data = GB (as reported by LibreHardwareMonitor)
+                    metric.set(value)
+                    logger.debug(f"✅ Set metric {standardized_name}: {value}")
                     
                 except Exception as e:
                     logger.warning(f"Failed to set metric {standardized_name}: {e}")
@@ -926,7 +1025,7 @@ class HardwareMonitor:
 def main():
     parser = argparse.ArgumentParser(description='Rigbeat - Prometheus Exporter')
     parser.add_argument('--port', type=int, default=9182, help='Port to expose metrics (default: 9182)')
-    parser.add_argument('--interval', type=int, default=15, help='Update interval in seconds (default: 15, use 2-5 for real-time gaming or 10+ for general monitoring)')
+    parser.add_argument('--interval', type=int, default=2, help='Update interval in seconds (default: 2, use 2-5 for real-time gaming or 10+ for general monitoring)')
     parser.add_argument('--logfile', type=str, help='Log file path (e.g., rigbeat.log)')
     parser.add_argument('--debug', action='store_true', help='Enable debug logging')
     parser.add_argument('--http-host', type=str, default='localhost', help='LibreHardwareMonitor HTTP API host (default: localhost)')
