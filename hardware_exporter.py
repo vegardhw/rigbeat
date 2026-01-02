@@ -273,6 +273,24 @@ def get_standardized_metric_name(sensor_name: str, component_type: str = '', sen
         fan_num = re.search(r'#(\d+)', sensor_name).group(1)
         return f"motherboard_chassis_fan_{fan_num}"
     
+    # Alternative chassis fan patterns: "CHA1", "CHA2", "Chassis1", etc.
+    elif re.match(r'^CHA\d+$', sensor_name, re.IGNORECASE):
+        fan_num = re.search(r'(\d+)', sensor_name).group(1)
+        return f"motherboard_chassis_fan_{fan_num}"
+    
+    # CPU Fan patterns: "CPU1", "CPU2", "CPU Fan #1", etc.
+    elif re.match(r'^CPU\s*Fan\s*#?\d+', sensor_name, re.IGNORECASE):
+        fan_num = re.search(r'(\d+)', sensor_name).group(1)
+        return f"motherboard_cpu_fan_{fan_num}"
+    elif re.match(r'^CPU\d+$', sensor_name, re.IGNORECASE):
+        fan_num = re.search(r'(\d+)', sensor_name).group(1)
+        return f"motherboard_cpu_fan_{fan_num}"
+    
+    # System Fan patterns: "SYS1", "SYS2", "System Fan #1", etc.
+    elif re.match(r'^SYS\d+$', sensor_name, re.IGNORECASE):
+        fan_num = re.search(r'(\d+)', sensor_name).group(1)
+        return f"motherboard_system_fan_{fan_num}"
+    
     # GPU Fan patterns (fallback): "GPU Fan 1", "GPU Fan 2", etc.
     elif re.match(r'^GPU Fan \d+', sensor_name):
         fan_num = re.search(r'Fan (\d+)', sensor_name).group(1)
